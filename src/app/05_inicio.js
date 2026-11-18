@@ -157,7 +157,7 @@ PANT.inicio = {
       ${borradores().length ? `<div class="o-sec" data-e><span class="o-cap">Borradores</span><span class="o-nota tn">${borradores().length}</span></div>
         <div class="o-filas">${borradores().map(filaBorrador).join('')}</div>` : ''}
       ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
-        <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
+        ${galeriaRecuerdos(pas)}` : ''}
       ${carpetasInicio()}
       </div></div>
     </div>`;
@@ -231,11 +231,22 @@ function filaViaje(v) {
     <span class="o-filav-d"><span class="o-num tn">${e.e === 'curso' ? e.dia : e.faltan}</span><span class="o-cap">${e.e === 'curso' ? 'día' : 'días'}</span></span>
   </button>`;
 }
-function tarjetaRecuerdo(v) {
-  const url = portadaUrl(v);
-  return `<button class="o-rec t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="pop">
+/* Recuerdos en galería: el último viaje grande y los demás en mosaico de dos columnas con alturas distintas */
+function galeriaRecuerdos(vs) {
+  if (!vs.length) return '';
+  const cols = [[], []]; vs.slice(1).forEach((v, i) => cols[i % 2].push(v));
+  return `<div class="o-gal">${tarjetaRecuerdo(vs[0], 'g')}${cols.map((c, k) => c.length ? `<div class="o-gal-c">${c.map((v, i) => tarjetaRecuerdo(v, (i + k) % 2 ? 'b' : 'a')).join('')}</div>` : '').join('')}</div>`;
+}
+function fechaRecuerdo(v) { const f = fecha(v.desde); return f.getUTCFullYear() + ' · ' + cap(MESES[f.getUTCMonth()]); }
+function tarjetaRecuerdo(v, t) {
+  const url = portadaUrl(v), dias = diasDe(v).length;
+  const datos = t === 'g'
+    ? `<span class="o-rec-dat"><span><b class="tn">${dias}</b><i>${dias === 1 ? 'día' : 'días'}</i></span><span><b class="tn">${paradasDe(v.id).length}</b><i>paradas</i></span></span>`
+    : `<span class="o-rec-s">${esc(v.lugar || v.ciudad || '')}</span>`;
+  return `<button class="o-rec o-rec-${t || 'a'} t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="pop">
     <span class="o-rec-f" style="${url ? `background-image:url('${url}')` : ''}"></span>
-    <span class="o-rec-t"><span>${esc(v.nombre)}</span><span class="o-nota">${esc(MESES[fecha(v.desde).getUTCMonth()])} ${fecha(v.desde).getUTCFullYear()}</span></span>
+    <span class="o-rec-ch tn">${esc(fechaRecuerdo(v))}</span>
+    <span class="o-rec-t"><span class="o-rec-n">${esc(v.nombre)}</span>${datos}</span>
   </button>`;
 }
 function abrirViaje(id, b, e) {

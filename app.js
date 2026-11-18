@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.9 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.10 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.9';
+const VERSION = '1.0.10';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -1633,7 +1633,7 @@ PANT.inicio = {
       ${borradores().length ? `<div class="o-sec" data-e><span class="o-cap">Borradores</span><span class="o-nota tn">${borradores().length}</span></div>
         <div class="o-filas">${borradores().map(filaBorrador).join('')}</div>` : ''}
       ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
-        <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
+        ${galeriaRecuerdos(pas)}` : ''}
       ${carpetasInicio()}
       </div></div>
     </div>`;
@@ -1707,11 +1707,22 @@ function filaViaje(v) {
     <span class="o-filav-d"><span class="o-num tn">${e.e === 'curso' ? e.dia : e.faltan}</span><span class="o-cap">${e.e === 'curso' ? 'día' : 'días'}</span></span>
   </button>`;
 }
-function tarjetaRecuerdo(v) {
-  const url = portadaUrl(v);
-  return `<button class="o-rec t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="pop">
+/* Recuerdos en galería: el último viaje grande y los demás en mosaico de dos columnas con alturas distintas */
+function galeriaRecuerdos(vs) {
+  if (!vs.length) return '';
+  const cols = [[], []]; vs.slice(1).forEach((v, i) => cols[i % 2].push(v));
+  return `<div class="o-gal">${tarjetaRecuerdo(vs[0], 'g')}${cols.map((c, k) => c.length ? `<div class="o-gal-c">${c.map((v, i) => tarjetaRecuerdo(v, (i + k) % 2 ? 'b' : 'a')).join('')}</div>` : '').join('')}</div>`;
+}
+function fechaRecuerdo(v) { const f = fecha(v.desde); return f.getUTCFullYear() + ' · ' + cap(MESES[f.getUTCMonth()]); }
+function tarjetaRecuerdo(v, t) {
+  const url = portadaUrl(v), dias = diasDe(v).length;
+  const datos = t === 'g'
+    ? `<span class="o-rec-dat"><span><b class="tn">${dias}</b><i>${dias === 1 ? 'día' : 'días'}</i></span><span><b class="tn">${paradasDe(v.id).length}</b><i>paradas</i></span></span>`
+    : `<span class="o-rec-s">${esc(v.lugar || v.ciudad || '')}</span>`;
+  return `<button class="o-rec o-rec-${t || 'a'} t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="pop">
     <span class="o-rec-f" style="${url ? `background-image:url('${url}')` : ''}"></span>
-    <span class="o-rec-t"><span>${esc(v.nombre)}</span><span class="o-nota">${esc(MESES[fecha(v.desde).getUTCMonth()])} ${fecha(v.desde).getUTCFullYear()}</span></span>
+    <span class="o-rec-ch tn">${esc(fechaRecuerdo(v))}</span>
+    <span class="o-rec-t"><span class="o-rec-n">${esc(v.nombre)}</span>${datos}</span>
   </button>`;
 }
 function abrirViaje(id, b, e) {
@@ -4051,7 +4062,7 @@ PANT.archivados = {
       <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button><span></span><span style="width:46px"></span></div>
       <div class="o-tabc-t"><h1 class="o-t1" data-e="titulo">Archivados</h1><span class="o-num o-tabc-n tn" data-e>${vs.length}</span></div>
       <p class="o-nota" data-e style="margin-top:6px">Viajes que has quitado del inicio. Mantén pulsado uno para devolverlo al inicio o borrarlo.</p>
-      ${vs.length ? `<div class="o-recs" style="margin-top:18px">${vs.map(tarjetaRecuerdo).join('')}</div>`
+      ${vs.length ? `<div style="margin-top:18px">${galeriaRecuerdos(vs)}</div>`
       : `<div class="o-vacio" data-e="pop" style="margin-top:12vh"><div class="o-vacio-ic">${ic('archive', 30, 1.4)}</div><div class="o-t3">Nada archivado</div><p class="o-nota">Mantén pulsado un viaje del inicio y elige Archivar.</p></div>`}
     </div>`;
   },

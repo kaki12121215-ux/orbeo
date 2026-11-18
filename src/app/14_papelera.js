@@ -149,7 +149,7 @@ PANT.archivados = {
       <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button><span></span><span style="width:46px"></span></div>
       <div class="o-tabc-t"><h1 class="o-t1" data-e="titulo">Archivados</h1><span class="o-num o-tabc-n tn" data-e>${vs.length}</span></div>
       <p class="o-nota" data-e style="margin-top:6px">Viajes que has quitado del inicio. Mantén pulsado uno para devolverlo al inicio o borrarlo.</p>
-      ${vs.length ? `<div class="o-recs" style="margin-top:18px">${vs.map(tarjetaRecuerdo).join('')}</div>`
+      ${vs.length ? `<div style="margin-top:18px">${galeriaRecuerdos(vs)}</div>`
       : `<div class="o-vacio" data-e="pop" style="margin-top:12vh"><div class="o-vacio-ic">${ic('archive', 30, 1.4)}</div><div class="o-t3">Nada archivado</div><p class="o-nota">Mantén pulsado un viaje del inicio y elige Archivar.</p></div>`}
     </div>`;
   },
