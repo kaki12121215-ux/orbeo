@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.2 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.3 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -271,6 +271,12 @@ function copiar(txt) {
 }
 function copiarViejo(txt) { const t = document.createElement('textarea'); t.value = txt; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { } t.remove(); return ok; }
 function vibrar(ms) { try { navigator.vibrate && navigator.vibrate(ms || 8); } catch (e) { } }
+/* Mantener pulsado no selecciona texto ni saca la lupa de Safari (salvo en campos para escribir) */
+(function () {
+  const campo = e => { const t = e.target && e.target.nodeType === 3 ? e.target.parentNode : e.target; return !!(t && t.closest && t.closest('input,textarea,[contenteditable]')); };
+  document.addEventListener('selectstart', e => { if (!campo(e)) e.preventDefault(); });
+  document.addEventListener('contextmenu', e => { if (!campo(e) && !(e.target.closest && e.target.closest('a[href]'))) e.preventDefault(); });
+})();
 
 /* ---- 01_sync.js ---- */
 /* ============================ SINCRONIZACIÓN ============================
@@ -582,22 +588,26 @@ const Anim = {
   async vuela(desde, hacia, o) {
     o = o || {};
     if (!desde || !hacia || reducido()) return;
-    const a = desde.getBoundingClientRect(), b = hacia.getBoundingClientRect();
+    /* La copia aterriza en la caja visible del destino (con sus esquinas redondeadas), no en la foto interior */
+    const caja = o.caja ? (hacia.closest(o.caja) || hacia) : hacia;
+    const a = desde.getBoundingClientRect(), b = caja.getBoundingClientRect();
     if (!a.width || !b.width) return;
     const c = document.createElement('div');
     c.className = 'o-vuelo';
-    const radA = getComputedStyle(desde).borderRadius, radB = getComputedStyle(hacia).borderRadius;
+    const radio = x => { const s = getComputedStyle(x); return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].join(' '); };
+    const radA = radio(desde), radB = radio(caja);
     c.style.cssText = `left:${a.left}px;top:${a.top}px;width:${a.width}px;height:${a.height}px;border-radius:${radA};background-image:${o.imagen ? `url("${o.imagen}")` : getComputedStyle(desde).backgroundImage}`;
     document.body.appendChild(c);
-    hacia.style.visibility = 'hidden';
-    const giro = o.giro || 0;
+    hacia.style.opacity = '0';
+    /* Por si algo falla, el destino nunca se queda en blanco */
+    const seguro = setTimeout(() => { hacia.style.opacity = ''; }, (o.ms || 700) + 400);
     await animar(c, [
-      { left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px', borderRadius: radA, transform: 'rotate(0deg)' },
-      { offset: .55, transform: `rotate(${giro}deg)` },
-      { left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', borderRadius: radB, transform: 'rotate(0deg)' }
+      { left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px', borderRadius: radA },
+      { left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', borderRadius: radB }
     ], { duration: o.ms || 700, easing: CURVA.entrar, fill: 'forwards' });
-    hacia.style.visibility = '';
-    animar(c, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, siempre: true }).then(() => c.remove());
+    clearTimeout(seguro);
+    hacia.style.opacity = '';
+    animar(c, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, siempre: true }).then(() => c.remove());
   },
   /* Revela un elemento con un círculo que crece desde un punto */
   circulo(el, x, y, ms) {
@@ -724,6 +734,11 @@ const ICONOS = {
   bell: '<path d="M6 16.5V11a6 6 0 0112 0v5.5l1.5 1.5h-15zM10 20.5h4"/>',
   phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>',
   desktop: '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20.5h6M12 16.5v4"/>',
+  tag: '<path d="M3.5 12.2V4.8c0-.7.6-1.3 1.3-1.3h7.4l8.3 8.3a1.3 1.3 0 010 1.8l-7.4 7.4a1.3 1.3 0 01-1.8 0z"/><circle cx="8.2" cy="8.2" r="1.4"/>',
+  bag: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 016 0V8"/>',
+  list: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.6" cy="6.5" r=".9"/><circle cx="4.6" cy="12" r=".9"/><circle cx="4.6" cy="17.5" r=".9"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="3.5"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/>',
+  tree: '<path d="M12 3l6 8h-3.5l4.5 6H5l4.5-6H6z"/><path d="M12 17v4"/>',
   rotate: '<path d="M4.5 12a7.5 7.5 0 0113-5.1l2 2M19.5 4v5h-5M19.5 12a7.5 7.5 0 01-13 5.1l-2-2M4.5 20v-5h5"/>'
 };
 function ic(n, s, w) { return `<svg class="ic" width="${s || 22}" height="${s || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.7}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n] || ''}</svg>`; }
@@ -916,7 +931,7 @@ const Nav = {
       const dest = $(o.vuela.hacia, nueva.el);
       if (vieja) animar(vieja.el, [{ transform: 'none', opacity: 1 }, { transform: 'scale(.96)', opacity: .6 }], { duration: 560, easing: CURVA.entrar });
       const pr = animar(nueva.el, [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
-      Anim.vuela(o.vuela.desde, dest, { ms: 620, imagen: o.vuela.imagen });
+      Anim.vuela(o.vuela.desde, dest, { ms: 620, imagen: o.vuela.imagen, caja: o.vuela.caja });
       Anim.entrar(nueva.el, { retraso: 260, paso: 45 });
       ent && ent();
       await Promise.all([pr, espera(620)]);
@@ -1079,7 +1094,7 @@ const Capa = {
     });
     this.arrastre(c);
     if (o.alAbrir) o.alAbrir(c.hoja, c);
-    c.cerrar = () => this.cerrar(c);
+    c.cerrar = (forzar) => this.cerrar(c, 0, forzar === true);
     c.repintar = () => { morph($('.o-hoja-c', el), typeof o.html === 'function' ? o.html() : o.html); if (o.alAbrir) o.alAbrir(c.hoja, c, true); };
     return c;
   },
@@ -1107,9 +1122,18 @@ const Capa = {
       else { animar(c.hoja, [{ transform: `translateY(${y}px)` }, { transform: 'none' }], { duration: 380, easing: CURVA.muelle }); $('.o-velo', c.el).style.opacity = 1; }
     });
   },
-  async cerrar(c, desde) {
+  async cerrar(c, desde, forzar) {
     c = c || this.abiertas[this.abiertas.length - 1];
-    if (!c || c.cerrando) return; c.cerrando = true;
+    if (!c || c.cerrando) return;
+    /* Una hoja puede preguntar antes de irse (p. ej. guardar como borrador) */
+    if (!forzar && c.o && c.o.antesCerrar) {
+      if (c.preguntando) return;
+      c.preguntando = true;
+      let ok = true; try { ok = await c.o.antesCerrar(c); } catch (e) { }
+      c.preguntando = false;
+      if (!ok) { if (desde) { animar(c.hoja, [{ transform: `translateY(${desde}px)` }, { transform: 'none' }], { duration: 420, easing: CURVA.muelle }); $('.o-velo', c.el).style.opacity = 1; } return; }
+    }
+    c.cerrando = true;
     this.abiertas = this.abiertas.filter(x => x !== c);
     this.detras();
     if (c.tipo === 'menu') { await animar(c.panel, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 160, easing: CURVA.salir }); c.el.remove(); return; }
@@ -1136,6 +1160,19 @@ const Capa = {
       const b = e.target.closest('.o-menu-f');
       this.cerrar(c);
       if (b) { const o = ops[+b.dataset.i]; setTimeout(() => o.f && o.f(), 120); }
+    });
+  },
+  /* Pregunta con varias salidas. o.ops = [{ k, t, clase }]. Devuelve la k elegida o null */
+  preguntar(o) {
+    return new Promise(ok => {
+      let r = null;
+      const c = this.hoja({
+        clase: 'o-hoja-peq',
+        html: `<div class="o-conf"><div class="o-t3" data-e>${esc(o.titulo)}</div>${o.texto ? `<p class="o-txt" data-e style="margin-top:8px">${esc(o.texto)}</p>` : ''}
+          <div class="o-conf-v">${o.ops.map(x => `<button class="o-pil t ${x.clase || ''}" data-a="op" data-k="${x.k}" data-e>${x.ic ? ic(x.ic, 18) : ''}${esc(x.t)}</button>`).join('')}</div></div>`,
+        acciones: { op: (b) => { r = b.dataset.k; c.cerrar(); } },
+        alCerrar: () => ok(r)
+      });
     });
   },
   confirmar(o) {
@@ -1227,6 +1264,52 @@ const TIPOS = {
   visita: { t: 'Visita', ic: 'pin' }, comida: { t: 'Comida', ic: 'food' }, actividad: { t: 'Actividad', ic: 'ticket' },
   transporte: { t: 'Transporte', ic: 'train' }, vuelo: { t: 'Vuelo', ic: 'plane' }, hotel: { t: 'Alojamiento', ic: 'bed' }
 };
+Object.assign(TIPOS, { compras: { t: 'Compras', ic: 'bag' }, noche: { t: 'Noche', ic: 'moon' }, naturaleza: { t: 'Naturaleza', ic: 'tree' } });
+/* ---------- Categorías: las de siempre más las que cree el grupo (se guardan y salen en toda la app) */
+function categorias() {
+  const o = Object.assign({}, TIPOS);
+  lista('categorias').sort((a, b) => (a.creado || 0) - (b.creado || 0)).forEach(c => { o[c.id] = { t: c.t, ic: 'tag', propia: true }; });
+  return o;
+}
+function tipoDe(k, sinDefecto) {
+  if (TIPOS[k]) return TIPOS[k];
+  const c = k && dato('categorias', k);
+  if (c) return { t: c.t, ic: 'tag', propia: true };
+  return sinDefecto ? null : TIPOS.visita;
+}
+/* Fila de categorías para elegir una. o.a = acción al tocar */
+function chipsCat(sel, o) {
+  o = o || {};
+  const cs = categorias();
+  return `<div class="o-cats">${Object.keys(cs).map(k => `<button class="o-cat t t-s${k === sel ? ' o-on' : ''}" data-a="${o.a || 'cat'}" data-k="${k}">${ic(cs[k].ic, 16, 1.8)}<span>${esc(cs[k].t)}</span></button>`).join('')}<button class="o-cat o-cat-mas t t-s" data-a="catNueva">${ic('plus', 16, 2)}<span>Nueva</span></button></div>`;
+}
+function marcarCat(b, on) {
+  $$('.o-cat', b.parentNode).forEach(x => x.classList.toggle('o-on', on && x === b));
+  if (on) Anim.salto(b);
+}
+/* Crea una categoría propia y la devuelve (o null si se cancela) */
+function nuevaCategoria() {
+  return new Promise(ok => {
+    let r = null;
+    const c = Capa.hoja({
+      clase: 'o-hoja-peq',
+      html: `<div class="o-conf"><div class="o-t3" data-e>Nueva categoría</div><p class="o-nota" data-e style="margin-top:6px">Se guarda para todo el grupo y sale en paradas e ideas.</p>
+        <input id="f-catn" class="o-in" data-e placeholder="Miradores, cafés bonitos, playas…" autocomplete="off" style="margin-top:16px" maxlength="28">
+        <div class="o-conf-b" data-e><button class="o-pil o-sec t" data-a="cerrar">Cancelar</button><button class="o-pil t" data-a="crearCat">Crear</button></div></div>`,
+      alAbrir: (h) => { const i = $('#f-catn', h); setTimeout(() => i.focus(), 350); i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('[data-a="crearCat"]', h).click(); } }); },
+      acciones: {
+        crearCat: () => {
+          const i = $('#f-catn', c.hoja), t = i.value.trim();
+          if (!t) { Anim.no(i); return; }
+          const ya = Object.entries(categorias()).find(([k, x]) => x.t.toLowerCase() === t.toLowerCase());
+          r = ya ? ya[0] : nuevo('categorias', { t: t.slice(0, 1).toUpperCase() + t.slice(1) }, { callado: true });
+          c.cerrar();
+        }
+      },
+      alCerrar: () => ok(r)
+    });
+  });
+}
 const TIPOS_DOC = {
   vuelo: { t: 'Vuelo', ic: 'plane' }, hotel: { t: 'Alojamiento', ic: 'bed' }, tren: { t: 'Tren o bus', ic: 'train' },
   coche: { t: 'Coche', ic: 'car' }, entrada: { t: 'Entrada', ic: 'ticket' }, seguro: { t: 'Seguro', ic: 'shield' }, otro: { t: 'Otro', ic: 'doc' }
@@ -1297,13 +1380,14 @@ function crearDemo() {
   PK('k31', 3, '09:00', 'Templo Kodai-ji', 'visita', 35.0006, 135.7810, { fotos: [F('kio_kiyomizu2')], nota: 'Jardín zen y el bosquecillo de bambú pequeño.' });
   PK('k32', 3, '11:30', 'Últimas compras en Teramachi', 'actividad', 35.0068, 135.7676);
   PK('k33', 3, '15:10', 'Haruka al aeropuerto de Kansai', 'transporte', 34.9858, 135.7588, { fin: '16:28', nota: 'Andén 30. Asientos reservados en el coche 3.', por: 'p2' });
+  pon('categorias', 'cmira', { t: 'Miradores' });
   const IK = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vkt', titulo, fuente, url, imagen: img ? F(img) : null }, extra || {}));
-  IK('ik1', 'Los 5 mejores ramen de Kioto', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/1', 'kio_ramen', { autor: '@comeconjapon', por: 'p3' });
-  IK('ik2', 'Pontocho cuando encienden los farolillos', 'instagram', 'https://www.instagram.com/p/ejemplo1/', 'kio_pontocho', { autor: '@kyoto.light', por: 'p2' });
-  IK('ik3', 'Arces rojos de Arashiyama', 'instagram', 'https://www.instagram.com/p/ejemplo2/', 'kio_arces', { autor: '@momiji.days' });
-  IK('ik4', 'Kinkaku-ji al abrir', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/2', 'kio_kinkaku', { autor: '@viajaconmapa' });
-  IK('ik5', 'Ceremonia del té Camellia', 'maps', 'https://maps.google.com/?q=34.9967,135.7805', 'kio_te', { lugar: { lat: 34.9967, lng: 135.7805 }, nota: 'Tiene muy buenas reseñas y la explican en inglés.', por: 'p1' });
-  IK('ik6', 'Ninenzaka sin gente', 'maps', 'https://maps.google.com/?q=34.9981,135.7808', 'kio_yasaka', { lugar: { lat: 34.9981, lng: 135.7808 } });
+  IK('ik1', 'Los 5 mejores ramen de Kioto', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/1', 'kio_ramen', { autor: '@comeconjapon', por: 'p3', cat: 'comida', nota: 'El de Menbaka Fire Ramen lo flambean delante. Ir pronto, hay cola.' });
+  IK('ik2', 'Pontocho cuando encienden los farolillos', 'instagram', 'https://www.instagram.com/p/ejemplo1/', 'kio_pontocho', { autor: '@kyoto.light', por: 'p2', cat: 'noche' });
+  IK('ik3', 'Arces rojos de Arashiyama', 'instagram', 'https://www.instagram.com/p/ejemplo2/', 'kio_arces', { autor: '@momiji.days', cat: 'naturaleza' });
+  IK('ik4', 'Kinkaku-ji al abrir', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/2', 'kio_kinkaku', { autor: '@viajaconmapa', cat: 'cmira', nota: 'Abre a las 9:00. Llegar 15 minutos antes.' });
+  IK('ik5', 'Ceremonia del té Camellia', 'maps', 'https://maps.google.com/?q=34.9967,135.7805', 'kio_te', { lugar: { lat: 34.9967, lng: 135.7805 }, nota: 'Tiene muy buenas reseñas y la explican en inglés.', por: 'p1', cat: 'actividad' });
+  IK('ik6', 'Ninenzaka sin gente', 'maps', 'https://maps.google.com/?q=34.9981,135.7808', 'kio_yasaka', { lugar: { lat: 34.9981, lng: 135.7808 }, cat: 'cmira' });
   const DK = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vkt', tipo, titulo, cuando }, extra || {}));
   DK('dk1', 'vuelo', 'Madrid → Osaka Kansai', K(0) + ' 09:05', { codigo: 'K7Q2LM', detalles: 'Vuelo con escala en Helsinki. 4 pasajeros. Maleta de 23 kg cada uno.', por: 'p2' });
   DK('dk2', 'tren', 'Shinkansen Nozomi', K(0) + ' 12:03', { codigo: 'JR-4471', detalles: 'Coche 7, asientos 12 A a D' });
@@ -1331,10 +1415,10 @@ function crearDemo() {
   PL('l22', 2, '10:00', 'Palacio da Pena', 'visita', 38.7876, -9.3906, { fotos: [F('lis_sintra')], nota: 'Entrada con hora a las 10:00. Subir en el autobús 434.', por: 'p1' });
   PL('l23', 2, '20:30', 'Vuelo de vuelta a Madrid', 'vuelo', 38.7742, -9.1342);
   const IL = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vls', titulo, fuente, url, imagen: img ? F(img) : null }, extra || {}));
-  IL('il1', 'Los mejores pastéis de nata de Lisboa', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/3', 'lis_nata', { autor: '@lisboacome', por: 'p3' });
-  IL('il2', 'Fachadas de azulejo en Alfama', 'instagram', 'https://www.instagram.com/p/ejemplo3/', 'lis_azulejos', { autor: '@azulejo.walks' });
-  IL('il3', 'Arte urbano en Bairro Alto', 'instagram', 'https://www.instagram.com/p/ejemplo4/', 'lis_bairro', { autor: '@streetlisboa', por: 'p2' });
-  IL('il4', 'Miradouro da Senhora do Monte', 'maps', 'https://maps.google.com/?q=38.7192,-9.1325', 'lis_alfama', { lugar: { lat: 38.7192, lng: -9.1325 }, nota: 'El mirador más alto, menos gente que Santa Luzia.' });
+  IL('il1', 'Los mejores pastéis de nata de Lisboa', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/3', 'lis_nata', { autor: '@lisboacome', por: 'p3', cat: 'comida', nota: 'Manteigaria mejor que Belém, y sin cola.' });
+  IL('il2', 'Fachadas de azulejo en Alfama', 'instagram', 'https://www.instagram.com/p/ejemplo3/', 'lis_azulejos', { autor: '@azulejo.walks', cat: 'visita' });
+  IL('il3', 'Arte urbano en Bairro Alto', 'instagram', 'https://www.instagram.com/p/ejemplo4/', 'lis_bairro', { autor: '@streetlisboa', por: 'p2', cat: 'noche' });
+  IL('il4', 'Miradouro da Senhora do Monte', 'maps', 'https://maps.google.com/?q=38.7192,-9.1325', 'lis_alfama', { lugar: { lat: 38.7192, lng: -9.1325 }, nota: 'El mirador más alto, menos gente que Santa Luzia.', cat: 'cmira' });
   IL('il5', 'Sintra en un día', 'web', 'https://www.ejemplo.com/sintra', 'lis_sintra', { nota: 'Orden recomendado: Pena, Moorish y Quinta da Regaleira.' });
   const DL = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vls', tipo, titulo, cuando }, extra || {}));
   DL('dl1', 'vuelo', 'Madrid → Lisboa', L(0) + ' 09:15', { codigo: 'TP1027', detalles: '3 pasajeros · solo equipaje de mano', por: 'p2' });
@@ -1523,6 +1607,8 @@ PANT.inicio = {
       <div class="o-ini-lado">
       ${resto.length ? `<div class="o-sec" data-e><span class="o-cap">Próximos</span><span class="o-nota tn">${resto.length}</span></div>
         <div class="o-filas">${resto.map(filaViaje).join('')}</div>` : ''}
+      ${borradores().length ? `<div class="o-sec" data-e><span class="o-cap">Borradores</span><span class="o-nota tn">${borradores().length}</span></div>
+        <div class="o-filas">${borradores().map(filaBorrador).join('')}</div>` : ''}
       ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
         <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
       </div></div>
@@ -1536,9 +1622,27 @@ PANT.inicio = {
   acciones: {
     abrir: (b, e) => abrirViaje(b.dataset.id, b, e),
     nuevo: () => editarViaje(null),
+    borrador: (b) => editarViaje(null, { borrador: b.dataset.id }),
+    quitarBorrador: async (b, e) => {
+      e.stopPropagation();
+      const id = b.dataset.id; borrar('borradores', id);
+      aviso('Borrador borrado', { accion: { t: 'Deshacer', f: () => poner('borradores', id, { _b: 0 }) } });
+    },
     ajustes: () => Nav.ir('ajustes')
   }
 };
+function borradores() { return lista('borradores', b => b.por === yo() || b._por === yo()).sort((a, b) => (b.cuando || 0) - (a.cuando || 0)); }
+function filaBorrador(b) {
+  const d = b.datos || {}, url = d.portada ? urlMedio(d.portada) : '';
+  const cuando = b.cuando ? new Date(b.cuando) : null;
+  return `<div class="o-filav o-bor" data-id="${b.id}" data-e>
+    <button class="o-bor-a t" data-a="borrador" data-id="${b.id}">
+      <span class="o-filav-f" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : ic('edit', 18)}</span>
+      <span class="o-filav-t"><span class="o-t3">${esc(d.nombre || d.ciudad || 'Viaje sin nombre')}</span><span class="o-nota">Sin terminar${d.ciudad && d.nombre ? ' · ' + esc(d.ciudad) : ''}${cuando ? ' · ' + cuando.getDate() + ' ' + MESES[cuando.getMonth()].slice(0, 3) : ''}</span></span>
+    </button>
+    <button class="o-bt t t-s o-bor-x" data-a="quitarBorrador" data-id="${b.id}" aria-label="Borrar borrador">${ic('close', 16)}</button>
+  </div>`;
+}
 function vacioInicio() {
   return `<div class="o-vacio-ini" data-e="heroe">
     <div class="o-vacio-orbe">${logo(120)}</div>
@@ -1588,13 +1692,16 @@ function abrirViaje(id, b, e) {
   const foto = b && $('.o-heroe-foto,.o-filav-f,.o-rec-f', b);
   const v = dato('viajes', id);
   const x = e && e.clientX != null ? e.clientX : innerWidth / 2, y = e && e.clientY != null ? e.clientY : innerHeight / 2;
-  Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x, y }, vuela: foto && portadaUrl(v) ? { desde: foto, hacia: '.o-vcab-foto', imagen: portadaUrl(v) } : null });
+  Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x, y }, vuela: foto && portadaUrl(v) ? { desde: foto, hacia: '.o-vcab-foto', caja: '.o-vcab', imagen: portadaUrl(v) } : null });
 }
 
 /* ---------- Crear o editar un viaje (hoja) */
-function editarViaje(v) {
+function editarViaje(v, o) {
+  o = o || {};
   const nuevoV = !v;
-  const f = v ? JSON.parse(JSON.stringify(v)) : { nombre: '', ciudad: '', lugar: '', desde: sumaDias(enZona(TZ_CASA()).dia, 30), hasta: sumaDias(enZona(TZ_CASA()).dia, 36), tz: '', moneda: 'EUR', quienes: lista('personas').map(p => p.id) };
+  const bor = o.borrador ? dato('borradores', o.borrador) : null;
+  let hecho = false, fotoT = null;
+  const f = v ? JSON.parse(JSON.stringify(v)) : bor ? JSON.parse(JSON.stringify(bor.datos || {})) : { nombre: '', ciudad: '', lugar: '', desde: sumaDias(enZona(TZ_CASA()).dia, 30), hasta: sumaDias(enZona(TZ_CASA()).dia, 36), tz: '', moneda: 'EUR', quienes: lista('personas').map(p => p.id) };
   let sugT = null;
   const vistaPortada = () => {
     const u = f.portada ? urlMedio(f.portada) : '';
@@ -1621,7 +1728,27 @@ function editarViaje(v) {
       </div>`,
     alAbrir: (h) => {
       const i = $('#f-vd', h);
-      i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintarSugs(h, await Lugar.buscar(i.value, { ciudades: true })), 260); });
+      i.addEventListener('input', () => {
+        clearTimeout(sugT); sugT = setTimeout(async () => pintarSugs(h, await Lugar.buscar(i.value, { ciudades: true })), 260);
+        /* Aunque no elijas ninguna sugerencia, sale la foto de lo que has escrito */
+        clearTimeout(fotoT);
+        const q = i.value.trim();
+        if (q.length >= 3 && (!f.portada || f.portadaAuto)) fotoT = setTimeout(() => PANT_portadaLugar(f, { n: q }, () => { if (i.value.trim() !== q) return; f.portadaAuto = true; ponerPortada(h); }), 900);
+      });
+    },
+    antesCerrar: async () => {
+      if (hecho || !nuevoV) return true;
+      leer(c.hoja);
+      if (!(f.nombre || f.ciudad || f.lugar || f.portada)) { if (bor) borrar('borradores', bor.id); return true; }
+      const r = await Capa.preguntar({ titulo: bor ? '¿Guardas los cambios del borrador?' : '¿Guardar como borrador?', texto: 'Lo tendrás en el inicio para terminarlo cuando quieras.', ops: [{ k: 'guardar', t: 'Guardar borrador', ic: 'download' }, { k: 'borrar', t: bor ? 'Borrar el borrador' : 'Borrar', clase: 'o-sec o-pmal-t', ic: 'trash' }, { k: 'seguir', t: 'Seguir editando', clase: 'o-sec' }] });
+      if (r === 'guardar') {
+        const datos = JSON.parse(JSON.stringify(f));
+        if (bor) poner('borradores', bor.id, { datos, cuando: Date.now() }); else nuevo('borradores', { datos, cuando: Date.now() });
+        aviso('Guardado en borradores', { ic: 'check' });
+        return true;
+      }
+      if (r === 'borrar') { if (bor) { borrar('borradores', bor.id); aviso('Borrador borrado'); } return true; }
+      return false;
     },
     acciones: {
       sug: async (b) => {
@@ -1632,9 +1759,15 @@ function editarViaje(v) {
         f.tz = (cerca && cerca.tz) || f.tz; f.moneda = monedaDe(f.pais || (cerca && cerca.pais));
         if (!$('#f-vn', h).value) $('#f-vn', h).value = s.n;
         $('#v-zona', h).innerHTML = zonaTxt(f.tz); animar($('#v-zona', h), [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
-        if (!f.portada) PANT_portadaLugar(f, s, () => { $('.o-port-prev', h).outerHTML = vistaPortada(); animar($('.o-port-prev', h), [{ opacity: 0, transform: 'scale(1.06)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: CURVA.heroe }); });
+        clearTimeout(fotoT);
+        if (!f.portada || f.portadaAuto) PANT_portadaLugar(f, s, () => { f.portadaAuto = true; ponerPortada(h); });
       },
-      pfoto: () => { if (!f.ciudad) return aviso('Elige primero el destino.'); f.portada = null; PANT_portadaLugar(f, { n: f.ciudad, lat: f.lat, lng: f.lng, pid: f.pid }, () => { $('.o-port-prev', c.hoja).outerHTML = vistaPortada(); animar($('.o-port-prev', c.hoja), [{ opacity: 0 }, { opacity: 1 }], { duration: 500 }); }); },
+      pfoto: (b) => {
+        const n = f.ciudad || $('#f-vd', c.hoja).value.trim() || $('#f-vn', c.hoja).value.trim();
+        if (!n) return aviso('Escribe primero el destino.');
+        cargando(b, true);
+        PANT_portadaLugar(f, { n, lat: f.lat, lng: f.lng, pid: f.pid }, () => { f.portadaAuto = true; ponerPortada(c.hoja); }).then(() => { cargando(b, false); if (!f.portada) aviso('No he encontrado foto de «' + n + '». Prueba con «Crear con IA» o «Mi foto».'); });
+      },
       pia: async (b) => {
         if (!Sync.activo()) return aviso('Crear portadas con IA necesita el script con tu clave de Gemini.');
         cargando(b, true);
@@ -1643,7 +1776,7 @@ function editarViaje(v) {
           const bin = atob(r.data), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
           const blob = new Blob([u], { type: r.tipo || 'image/png' });
           const id = 'm' + uid(); await DB.set('med:' + id, blob); S.imgs[id] = URL.createObjectURL(blob);
-          f.portada = { id, fid: r.fid };
+          f.portada = { id, fid: r.fid }; f.portadaAuto = false;
           $('.o-port-prev', c.hoja).outerHTML = vistaPortada();
           Anim.circulo($('.o-port-prev', c.hoja), 180, 110, 900);
         } catch (e) { aviso(e.message); } finally { cargando(b, false); }
@@ -1652,7 +1785,7 @@ function editarViaje(v) {
         const [file] = await elegirArchivos('image/*'); if (!file) return;
         const blob = await reducir(file, 1800, .86);
         const id = await Subidas.guardar(blob, 'portada.jpg');
-        f.portada = { id };
+        f.portada = { id }; f.portadaAuto = false;
         $('.o-port-prev', c.hoja).outerHTML = vistaPortada();
         animar($('.o-port-prev', c.hoja), [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 600, easing: CURVA.muelle });
       },
@@ -1662,22 +1795,34 @@ function editarViaje(v) {
         borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje borrado');
       },
       guardar: () => {
-        const h = c.hoja, val = id => $('#f-' + id, h).value.trim();
-        f.nombre = val('vn'); f.lugar = val('vl'); f.desde = val('vde'); f.hasta = val('vha');
-        if (!f.ciudad) f.ciudad = val('vd');
+        const h = c.hoja;
+        leer(h);
         if (!f.nombre) { Anim.no($('#f-vn', h).parentNode); return error(h, 'Ponle un nombre al viaje.'); }
         if (!f.desde) { Anim.no($('#f-vde', h).parentNode); return error(h, 'Falta la fecha de salida.'); }
         if (!f.hasta || f.hasta < f.desde) f.hasta = f.desde;
         if (!f.tz) { const cc = buscarCiudades(f.ciudad)[0]; f.tz = cc ? cc.tz : TZ_CASA(); if (cc) { f.lat = cc.lat; f.lng = cc.lng; f.pais = cc.pais; f.moneda = monedaDe(cc.pais); } }
         const campos = { nombre: f.nombre, lugar: f.lugar, ciudad: f.ciudad, desde: f.desde, hasta: f.hasta, tz: f.tz, moneda: f.moneda || 'EUR', pais: f.pais || '', lat: f.lat ?? null, lng: f.lng ?? null, quienes: f.quienes, portada: f.portada || null };
         let id = v && v.id;
-        if (nuevoV) { id = nuevo('viajes', campos); actividad(id, 'ha creado el viaje'); }
+        if (nuevoV) { id = nuevo('viajes', campos); actividad(id, 'ha creado el viaje'); if (bor) borrar('borradores', bor.id); }
         else poner('viajes', id, campos);
-        c.cerrar();
+        /* Si todavía no hay portada, se busca la foto del destino después */
+        if (!campos.portada && f.ciudad) { const vid = id; Lugar.foto({ n: f.ciudad, lat: f.lat, lng: f.lng, pid: f.pid }).then(u => { if (u && dato('viajes', vid) && !dato('viajes', vid).portada) poner('viajes', vid, { portada: { url: u } }); }).catch(() => { }); }
+        hecho = true;
+        c.cerrar(true);
         if (nuevoV) setTimeout(() => Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x: innerWidth / 2, y: innerHeight * .4 } }), 260);
       }
     }
   });
+  function leer(h) {
+    const val = id => ($('#f-' + id, h) || {}).value ? $('#f-' + id, h).value.trim() : '';
+    f.nombre = val('vn'); f.lugar = val('vl'); f.desde = val('vde') || f.desde; f.hasta = val('vha') || f.hasta;
+    const d = val('vd'); if (d !== (f.ciudad || '')) { f.ciudad = d; }
+  }
+  function ponerPortada(h) {
+    const p = $('.o-port-prev', h); if (!p) return;
+    p.outerHTML = vistaPortada();
+    animar($('.o-port-prev', h), [{ opacity: 0, transform: 'scale(1.06)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: CURVA.heroe });
+  }
   function pintarSugs(h, ls) {
     const box = $('#v-sugs', h);
     box.innerHTML = ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota">${esc(s.sub || '')}</span></span></button>`).join('');
@@ -1693,7 +1838,7 @@ function zonaTxt(tz) {
 async function PANT_portadaLugar(f, s, listo) {
   try {
     const u = await Lugar.foto(s);
-    if (u) { f.portada = { url: u }; listo(); }
+    if (u && !(f.portada && f.portada.url === u)) { f.portada = { url: u }; listo(); }
   } catch (e) { anotar('portada', e); }
 }
 
@@ -1792,7 +1937,7 @@ function cabViaje(v, o) {
       <button class="o-bt o-vido t t-s" data-a="mas" aria-label="Más">${ic('more', 20, 2.4)}</button>
     </div>
     <div class="o-vcab-txt">
-      <div class="o-cap o-claro" data-e>${esc(rango(v.desde, v.hasta))} · ${diasDe(v).length} días</div>
+      <div class="o-vcab-fecha" data-e><span class="o-chip o-vido">${ic('plan', 14, 1.9)}${esc(rango(v.desde, v.hasta))}<span class="o-chip-sep"></span>${diasDe(v).length} días</span></div>
       <h1 class="o-vcab-n" data-e="titulo">${esc(v.nombre)}</h1>
       <div class="o-fila o-vcab-pie" data-e><span>${esc(v.lugar || v.ciudad || '')}</span><button class="o-avs t" data-a="grupo">${ps.slice(0, 5).map(x => avatar(x, 28)).join('')}</button></div>
     </div>
@@ -1803,6 +1948,7 @@ function cabViaje(v, o) {
 TABS.plan = {
   render(v, p) {
     const dias = diasDe(v), hoy = hoyEn(v);
+    p.vista = p.vista || S.pref.vistaPlan || 'lista';
     if (!p.dia || dias.indexOf(p.dia) < 0) p.dia = dias.indexOf(hoy) >= 0 ? hoy : dias[0];
     const ps = paradasDe(v.id, p.dia);
     const n = dias.indexOf(p.dia) + 1;
@@ -1820,10 +1966,11 @@ TABS.plan = {
         <div class="o-dcab-n tn" data-v="${fecha(p.dia).getUTCDate()}">${fecha(p.dia).getUTCDate()}</div>
         <div class="o-dcab-t"><div class="o-dcab-s">${cap(diaSemana(p.dia))}${p.dia === hoy ? ' <span class="o-hoy-et">hoy</span>' : ''}</div>
         <div class="o-cap">${esc(MESES[fecha(p.dia).getUTCMonth()])} · Día ${n} de ${dias.length}${t ? ` · <span class="o-tiempo">${t.ic} ${t.max}°</span>` : ''}</div></div>
+        <div class="o-vista"><span class="o-pild"></span><button class="o-vista-b t t-s${p.vista !== 'cal' ? ' o-on' : ''}" data-a="vista" data-v="lista" aria-label="Itinerario">${ic('list', 19, 1.8)}</button><button class="o-vista-b t t-s${p.vista === 'cal' ? ' o-on' : ''}" data-a="vista" data-v="cal" aria-label="Calendario">${ic('cal', 19, 1.7)}</button></div>
       </div>
-      <div class="o-linea-t" data-dia="${p.dia}">
+      ${p.vista === 'cal' ? calDia(v, p.dia, ps) : `<div class="o-linea-t" data-dia="${p.dia}">
         ${ps.length ? ps.map((x, i) => filaParada(x, i, ps, ah, v)).join('') : `<div class="o-vacio-dia" data-e="pop"><div class="o-vacio-dia-o">${ic('plan', 26, 1.5)}</div><div class="o-t3">Día libre</div><p class="o-nota">${puedoEditar() ? 'Añade la primera parada o pasa una idea guardada.' : 'Todavía no hay nada planeado.'}</p></div>`}
-      </div>
+      </div>`}
       ${puedoEditar() ? `<div class="o-plan-b" data-e><button class="o-pil o-sec t t-g" data-a="nuevaParada">${ic('plus', 18, 2)}Añadir parada</button>${lista('ideas', i => i.viaje === v.id && !i.parada).length ? `<button class="o-pil o-sec t t-g" data-a="deIdea">${ic('idea', 17)}De una idea</button>` : ''}</div>` : ''}
       <button class="o-peli t t-g" data-a="peli" data-e>
         <span class="o-peli-fs">${(lista('medios', m => m.viaje === v.id && m.dia === p.dia).slice(0, 3).map(m => `<span style="background-image:url('${urlMedio(m)}')"></span>`).join('')) || `<span class="o-peli-v">${ic('film', 22, 1.5)}</span>`}</span>
@@ -1835,6 +1982,7 @@ TABS.plan = {
     return plan;
   },
   alPintar(el, v, p, primera, pa) {
+    const vi = $('.o-vista', el); if (vi) Anim.pildora(vi, $('.o-vista-b.o-on', vi));
     const dias = $('.o-dias', el), on = $('.o-dia.o-on', el);
     if (dias && on) {
       Anim.pildora(dias, on);
@@ -1847,12 +1995,57 @@ TABS.plan = {
     const f = $('.o-vcab-foto', el); if (!f || reducido()) return;
     const y = (ESCRITORIO() ? ($('.o-esc-plan', el) || el) : el).scrollTop;
     /* Solo un poco de profundidad: la foto se queda algo atrás, sin girar ni encogerse */
-    f.style.transform = y > 0 ? `translateY(${Math.min(y, 500) * .25}px)` : `scale(${1 + Math.min(-y, 200) * .0015})`;
+    f.style.transform = y > 0 ? `translateY(${Math.min(y, 500) * .25}px)` : '';
     const tx = $('.o-vcab-txt', el); if (tx) tx.style.opacity = Math.max(0, 1 - y / 300);
   }
 };
+/* ---------- Vista calendario: el día en horas, como una agenda. Cada parada ocupa su rato. */
+const COLOR_CAT = { visita: '#A8834F', comida: '#C0614A', actividad: '#6F8A4E', transporte: '#4F7398', vuelo: '#5B6FA8', hotel: '#8A5F8F', compras: '#B5577A', noche: '#465284', naturaleza: '#3F8A69' };
+const COLOR_PROPIA = ['#9A6B3F', '#5E7F8C', '#8C6A9E', '#A0563F', '#4F8A5B', '#7A7442'];
+function colorCat(k) {
+  if (COLOR_CAT[k]) return COLOR_CAT[k];
+  let h = 0; String(k || '').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) | 0; });
+  return COLOR_PROPIA[Math.abs(h) % COLOR_PROPIA.length];
+}
+const CAL_H = 64;
+function calDia(v, dia, ps) {
+  const conHora = ps.filter(x => minutos(x.hora) != null), sin = ps.filter(x => minutos(x.hora) == null);
+  const ev = conHora.map((x, i) => {
+    const a = minutos(x.hora); let b = minutos(x.fin);
+    if (b == null || b <= a) { const sig = conHora[i + 1]; b = sig && minutos(sig.hora) > a ? Math.min(minutos(sig.hora), a + 120) : a + 60; }
+    if (b - a < 40) b = a + 40;
+    return { x, a, b };
+  });
+  let ini = 8 * 60, fin = 22 * 60;
+  ev.forEach(e => { ini = Math.min(ini, Math.floor(e.a / 60) * 60); fin = Math.max(fin, Math.ceil(e.b / 60) * 60); });
+  fin = Math.min(fin, 24 * 60);
+  /* Si dos paradas se pisan, se reparten el ancho */
+  const grupos = []; let g = null, gfin = -1;
+  ev.slice().sort((p, q) => p.a - q.a).forEach(e => { if (!g || e.a >= gfin) { g = []; grupos.push(g); gfin = e.b; } else gfin = Math.max(gfin, e.b); g.push(e); });
+  grupos.forEach(gr => { const cols = []; gr.forEach(e => { let c = cols.findIndex(f => f <= e.a); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = e.b; e.col = c; }); gr.forEach(e => { e.n = cols.length; }); });
+  const y = m => (m - ini) / 60 * CAL_H;
+  const ahora = hoyEn(v) === dia ? enZona(v.tz).min : null;
+  const horas = []; for (let h = ini / 60; h <= fin / 60; h++) horas.push(h);
+  return `<div class="o-cal" data-dia="${dia}">
+    ${sin.length ? `<div class="o-cal-sin" data-e><span class="o-cap">Sin hora</span>${sin.map(x => `<button class="o-cal-chip t" data-a="parada" data-id="${x.id}" style="--cc:${colorCat(x.tipo)}"><span class="o-cal-pt"></span><span class="o-1l">${esc(x.nombre)}</span></button>`).join('')}</div>` : ''}
+    <div class="o-cal-g" data-e data-a="${puedoEditar() ? 'calHueco' : ''}" data-ini="${ini}" style="height:${y(fin) + 8}px">
+      ${horas.map(h => `<div class="o-cal-h" style="top:${y(h * 60)}px"><span class="tn">${String(h).padStart(2, '0')}:00</span></div>`).join('')}
+      <div class="o-cal-evs">
+      ${ev.map(e => {
+        const x = e.x, foto = fotoParada(x), alto = y(e.b) - y(e.a) - 4;
+        return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
+          ${foto && alto >= 54 && e.n < 3 ? `<span class="o-cal-f" style="background-image:url('${foto}')"></span>` : ''}
+          <span class="o-cal-tx"><span class="o-cal-n">${esc(x.nombre)}</span><span class="o-cal-s tn">${esc(x.hora)}${x.fin ? ' – ' + esc(x.fin) : ''}${alto >= 70 && x.lugar && x.lugar.dir ? ' · ' + esc(x.lugar.dir.split(',')[0]) : ''}</span></span>
+        </button>`;
+      }).join('')}
+      </div>
+      ${ahora != null && ahora >= ini && ahora <= fin ? `<div class="o-cal-ya" style="top:${y(ahora)}px"><span></span></div>` : ''}
+    </div>
+    ${!ps.length ? `<p class="o-nota o-cal-pista" data-e>${puedoEditar() ? 'Toca una hora para añadir una parada.' : 'Todavía no hay nada planeado.'}</p>` : ''}
+  </div>`;
+}
 function filaParada(x, i, ps, ah, v) {
-  const foto = fotoParada(x), tp = TIPOS[x.tipo] || TIPOS.visita;
+  const foto = fotoParada(x), tp = tipoDe(x.tipo);
   const es = i === ah.idx, pasado = x.hecho;
   const sig = ps[i + 1], tr = sig ? trayecto(x.lugar, sig.lugar) : null;
   const ent = tr ? `<div class="o-tray" data-e><span class="o-tray-l"></span><span class="o-tray-c">${ic(tr.modo === 'pie' ? 'walk' : tr.modo === 'tren' ? 'train' : 'bus', 14, 1.8)}${tr.modo === 'pie' ? 'A pie' : tr.modo === 'tren' ? 'En tren' : 'En transporte'} · ${duracion(tr.min)}</span></div>` : (sig ? '<div class="o-tray o-tray-v" data-e><span class="o-tray-l"></span></div>' : '');
@@ -1893,7 +2086,7 @@ Object.assign(PANT.viaje.acciones, {
     const atras = p.dia < viejo;
     const v = dato('viajes', p.id), vt = $('.o-vt', el);
     const html = TABS.plan.render(v, p);
-    const lt = $('.o-linea-t', el), dc = $('.o-dcab', el), pb = $('.o-plan-b', el), pe = $('.o-peli', el);
+    const lt = $('.o-linea-t,.o-cal', el), dc = $('.o-dcab', el), pb = $('.o-plan-b', el), pe = $('.o-peli', el);
     await Promise.all([
       animar(lt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${atras ? 18 : -18}px)` }], { duration: 170, easing: CURVA.salir }),
       animar(dc, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 150, easing: CURVA.salir }),
@@ -1905,11 +2098,11 @@ Object.assign(PANT.viaje.acciones, {
     TABS.plan.alPintar(vt, v, p, false, pa);
     cont.scrollLeft = sl; el.scrollTop = st;
     animar($('.o-dcab', vt), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 380 });
-    await animar($('.o-linea-t', vt), [{ opacity: 0, transform: `translateX(${atras ? -18 : 18}px)` }, { opacity: 1, transform: 'none' }], { duration: 380 });
+    await animar($('.o-linea-t,.o-cal', vt), [{ opacity: 0, transform: `translateX(${atras ? -18 : 18}px)` }, { opacity: 1, transform: 'none' }], { duration: 380 });
     pa.cambiando = false;
   },
   parada: (b, e, p) => {
-    const f = $('.o-par-f,.o-ahora-f,.o-carr-f', b) || b;
+    const f = $('.o-par-f,.o-ahora-f,.o-carr-f,.o-cal-f', b) || b;
     const x = dato('paradas', b.dataset.id), u = fotoParada(x);
     Nav.ir('parada', { id: b.dataset.id }, u ? { circulo: { x: e.clientX || innerWidth / 2, y: e.clientY || innerHeight / 2 }, vuela: { desde: f, hacia: '.o-pd-foto', imagen: u } } : {});
   },
@@ -1922,6 +2115,30 @@ Object.assign(PANT.viaje.acciones, {
   },
   llegar: (b) => { const x = dato('paradas', b.dataset.id); abrirRuta(x); },
   nuevaParada: (b, e, p) => editarParada(null, { viaje: p.id, dia: p.dia }),
+  calHueco: (b, e, p) => {
+    if (e.target.closest('.o-cal-ev')) return;
+    const r = b.getBoundingClientRect(), m = +b.dataset.ini + Math.floor((e.clientY - r.top) / CAL_H * 2) * 30;
+    if (m < 0 || m >= 24 * 60) return;
+    editarParada(null, { viaje: p.id, dia: p.dia, hora: String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0') });
+  },
+  vista: async (b, e, p, pa) => {
+    const nv = b.dataset.v; if (nv === p.vista || pa.cambiando) return;
+    pa.cambiando = true;
+    p.vista = nv; S.pref.vistaPlan = nv; guardarPref();
+    const cont = b.parentNode; $$('.o-vista-b', cont).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(cont, b);
+    const el = pa.el, vt = $('.o-vt', el), v = dato('viajes', p.id);
+    const html = TABS.plan.render(v, p);
+    await Promise.all([animar($('.o-linea-t,.o-cal', el), [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }], { duration: 160, easing: CURVA.salir }), Fotos.varias(urlsDe(html), 300)]);
+    const st = el.scrollTop, sl = $('.o-dias', el).scrollLeft;
+    morph(vt, html);
+    TABS.plan.alPintar(vt, v, p, false, pa);
+    $('.o-dias', el).scrollLeft = sl; el.scrollTop = st;
+    const nuevo_ = $('.o-linea-t,.o-cal', vt);
+    animar(nuevo_, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: CURVA.entrar });
+    $$('.o-cal-ev,.o-par', nuevo_).slice(0, 10).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 60 + i * 40, easing: CURVA.entrar }));
+    await espera(420);
+    pa.cambiando = false;
+  },
   deIdea: (b, e, p) => elegirIdea(p.id, p.dia),
   peli: (b, e, p) => Nav.ir('pelicula', { id: p.id, dia: p.dia }, { circulo: { x: e.clientX || innerWidth / 2, y: e.clientY || innerHeight / 2 } })
 });
@@ -1960,7 +2177,7 @@ PANT.parada = {
   render(p) {
     const x = dato('paradas', p.id);
     if (!x) return `<div class="o-cont"><div class="o-cab"><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button></div><div class="o-vacio" style="margin-top:30vh"><div class="o-t2">Esta parada ya no está</div></div></div>`;
-    const v = dato('viajes', x.viaje) || {}, tp = TIPOS[x.tipo] || TIPOS.visita;
+    const v = dato('viajes', x.viaje) || {}, tp = tipoDe(x.tipo);
     const foto = fotoParada(x), casa = TZ_CASA(), otra = v.tz && x.hora && desfase(v.tz) !== desfase(casa);
     const enCasa = otra ? cambiarZona(x.dia, x.hora, v.tz, casa) : null;
     const por = dato('personas', x.por || x._por);
@@ -1992,7 +2209,7 @@ PANT.parada = {
   },
   alDeslizar(el) {
     const f = $('.o-pd-foto', el), y = el.scrollTop;
-    if (f && !reducido()) f.style.transform = y < 0 ? `scale(${1 - y * .0025})` : `translateY(${Math.min(y, 600) * .3}px)`;
+    if (f) f.style.transform = y < 0 ? `translateY(${y}px)` : reducido() ? '' : `translateY(${Math.min(y, 600) * .3}px)`;
     /* Al bajar, arriba aparece una barra de cristal con el nombre (no choca con el botón de volver) */
     const lim = (f ? f.offsetHeight : 300) - 120;
     el.classList.toggle('o-pd-col', y > lim);
@@ -2073,9 +2290,10 @@ function editarParada(x, o) {
     clase: 'o-hoja-alta',
     html: `<div class="o-hcab" data-e><button class="o-enlace t" data-a="cerrar">Cancelar</button><div class="o-t3">${nueva ? 'Nueva parada' : 'Editar parada'}</div><button class="o-enlace t" data-a="guardar">Guardar</button></div>
     <div class="o-hoja-scroll">
-      <label class="o-campo" data-e><span class="o-etq">Qué</span><input id="f-pn" class="o-in o-in-g" placeholder="Templo, restaurante, museo…" value="${esc(f.nombre)}" autocomplete="off"><div class="o-sugs" id="p-sugs"></div></label>
-      <div class="o-lugar-sel" id="p-lugar" data-e>${lugarTxt(f.lugar)}</div>
-      <div class="o-campo" data-e><span class="o-etq">Tipo</span><div class="o-seg o-seg-s"><span class="o-pild"></span>${Object.keys(TIPOS).map(k => `<button class="o-seg-b t t-s${f.tipo === k ? ' o-on' : ''}" data-a="tipo" data-k="${k}">${ic(TIPOS[k].ic, 18)}<span>${TIPOS[k].t}</span></button>`).join('')}</div></div>
+      <label class="o-campo" data-e><span class="o-etq">Título</span><input id="f-pn" class="o-in o-in-g" placeholder="Vuelo a París, cena con amigos…" value="${esc(f.nombre)}" autocomplete="off"></label>
+      <div class="o-campo" data-e><span class="o-etq">Ubicación <span class="o-opc">si procede</span></span>
+        <div id="p-lugar">${f.lugar ? `<div class="o-lugar-sel">${lugarTxt(f.lugar, (f.fotos || [])[0] && urlMedio(f.fotos[0]))}</div>` : buscadorLugar()}</div><div class="o-sugs" id="p-sugs"></div></div>
+      <div class="o-campo" data-e><span class="o-etq">Categoría</span><div id="p-cats">${chipsCat(f.tipo, { a: 'tipo' })}</div></div>
       <div class="o-campo" data-e><span class="o-etq">Día</span><div class="o-dsel">${diasDe(v).map((d, i) => `<button class="o-dsel-b t t-s${d === f.dia ? ' o-on' : ''}" data-a="pdia" data-d="${d}"><span class="o-nota">${'DLMXJVS'[fecha(d).getUTCDay()]}</span><span class="tn">${fecha(d).getUTCDate()}</span></button>`).join('')}</div></div>
       <div class="o-dos" data-e>${campo('ph', 'Hora', '', f.hora, { tipo: 'time' })}${campo('pf', 'Hasta (opcional)', '', f.fin, { tipo: 'time' })}</div>
       ${otra ? `<div class="o-campo o-tzq" data-e><span class="o-etq">¿De qué hora hablas?</span>
@@ -2087,8 +2305,11 @@ function editarParada(x, o) {
     </div>`,
     alAbrir: (h, cc) => {
       $$('.o-seg', h).forEach(s => Anim.pildora(s, $('.o-on', s)));
-      const i = $('#f-pn', h);
-      i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintar(h, await Lugar.buscar(i.value, { cerca: v })), 280); });
+      cc.buscador = () => {
+        const i = $('#f-pl', h); if (!i) return;
+        i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintar(h, await Lugar.buscar(i.value, { cerca: v })), 280); });
+      };
+      cc.buscador();
       const eq = () => {
         const e = $('#p-eq', h); if (!e) return;
         const hv = $('#f-ph', h).value; if (!hv) { e.textContent = ''; return; }
@@ -2096,29 +2317,32 @@ function editarParada(x, o) {
         e.innerHTML = zonaElegida === 'destino' ? `Son las <b class="tn">${r.hora}</b> en ${esc(nombreZona(casa))}` : `En ${esc(nombreZona(v.tz))} serán las <b class="tn">${r.hora}</b>${r.dia !== f.dia ? ' del ' + esc(fechaCorta(r.dia)) : ''}. Se guarda así.`;
       };
       $('#f-ph', h).addEventListener('input', eq); cc.eq = eq; eq();
+      if (o.hora) $('#f-ph', h).value = o.hora;
       if (o.foco === 'dia') setTimeout(() => $('.o-dsel', h).scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
       const on = $('.o-dsel-b.o-on', h); if (on) on.parentNode.scrollLeft = on.offsetLeft - 120;
     },
     acciones: {
-      tipo: (b) => { f.tipo = b.dataset.k; $$('.o-seg-b', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(b.parentNode, b); },
+      tipo: (b) => { f.tipo = b.dataset.k; marcarCat(b, true); },
+      catNueva: async () => { const k = await nuevaCategoria(); if (!k) return; f.tipo = k; const box = $('#p-cats', c.hoja); box.innerHTML = chipsCat(f.tipo, { a: 'tipo' }); const b = $('.o-cat.o-on', box); if (b) { b.scrollIntoView({ inline: 'center', block: 'nearest' }); Anim.salto(b); } },
       pdia: (b) => { f.dia = b.dataset.d; $$('.o-dsel-b', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.salto(b); c.eq && c.eq(); },
       zona: (b) => { zonaElegida = b.dataset.z; $$('.o-seg-b', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(b.parentNode, b); c.eq(); },
       sug: async (b) => {
         const s = await Lugar.completar(JSON.parse(b.dataset.j)), h = c.hoja;
-        f.lugar = { lat: s.lat, lng: s.lng, dir: s.sub || '', pid: s.pid || '' };
-        const inp = $('#f-pn', h); if (!inp.value.trim() || s.n.toLowerCase().indexOf(inp.value.trim().toLowerCase()) === 0) inp.value = s.n;
+        f.lugar = { lat: s.lat, lng: s.lng, dir: [s.n, s.sub].filter(Boolean).join(', '), pid: s.pid || '' };
+        /* El título solo se rellena si está vacío: «Vuelo a París» se queda como lo escribiste */
+        const inp = $('#f-pn', h); if (!inp.value.trim()) inp.value = s.n;
         $('#p-sugs', h).innerHTML = '';
-        if (s.tipo) f.tipo = s.tipo;
-        const box = $('#p-lugar', h); box.innerHTML = lugarTxt(f.lugar);
+        if (s.tipo && nueva && f.tipo === 'visita') { f.tipo = s.tipo; const b = $(`.o-cat[data-k="${s.tipo}"]`, h); if (b) marcarCat(b, true); }
+        const box = $('#p-lugar', h); box.innerHTML = `<div class="o-lugar-sel">${lugarTxt(f.lugar)}</div>`;
         animar(box, [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: CURVA.muelle });
-        if (!(f.fotos || []).length) { const u = await Lugar.foto(s).catch(() => ''); if (u) { f.fotos = [{ url: u }]; box.innerHTML = lugarTxt(f.lugar, u); } }
+        if (!(f.fotos || []).length) { const u = await Lugar.foto(s).catch(() => ''); if (u) { f.fotos = [{ url: u }]; box.innerHTML = `<div class="o-lugar-sel">${lugarTxt(f.lugar, u)}</div>`; } }
       },
-      quitarLugar: () => { f.lugar = null; $('#p-lugar', c.hoja).innerHTML = lugarTxt(null); },
+      quitarLugar: () => { f.lugar = null; f.fotos = (f.fotos || []).filter(m => !m.url); $('#p-lugar', c.hoja).innerHTML = buscadorLugar(); c.buscador(); $('#f-pl', c.hoja).focus(); },
       guardar: () => {
         const h = c.hoja, val = id => $('#f-' + id, h).value.trim();
         f.nombre = val('pn'); f.nota = val('pno'); f.enlaces = val('pen').split(/\s*\n\s*/).filter(Boolean);
         let hora = val('ph'), fin = val('pf');
-        if (!f.nombre) { Anim.no($('#f-pn', h).parentNode); return error(h, 'Escribe qué es la parada.'); }
+        if (!f.nombre) { Anim.no($('#f-pn', h).parentNode); return error(h, 'Ponle un título a la parada.'); }
         if (otra && zonaElegida === 'casa' && hora) {
           const r = cambiarZona(f.dia, hora, casa, v.tz); hora = r.hora; f.dia = diasDe(v).indexOf(r.dia) >= 0 ? r.dia : f.dia;
           if (fin) fin = cambiarZona(f.dia, fin, casa, v.tz).hora;
@@ -2138,8 +2362,11 @@ function editarParada(x, o) {
     $$('.o-sug', box).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 40 }));
   }
 }
+function buscadorLugar() {
+  return `<div class="o-lbus">${ic('search', 18)}<input id="f-pl" class="o-lbus-in" placeholder="Busca el sitio para verlo en el mapa" autocomplete="off"></div>`;
+}
 function lugarTxt(l, foto) {
-  if (!l) return `<span class="o-nota">${ic('search', 16)} Escribe arriba y elige el sitio para verlo en el mapa</span>`;
+  if (!l) return '';
   return `<span class="o-lugar-f" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : ic('pin', 18)}</span><span class="o-1l">${esc(l.dir || (l.lat.toFixed(4) + ', ' + l.lng.toFixed(4)))}</span><button class="o-bt t t-s" data-a="quitarLugar" style="width:36px;height:36px">${ic('close', 16)}</button>`;
 }
 
@@ -2236,13 +2463,29 @@ const Lugar = {
   async foto(s) {
     if (s.fotoG) return s.fotoG;
     if (s.pid && claveMaps()) { const c = await this.completar(Object.assign({}, s, { lat: null })); if (c.fotoG) return c.fotoG; }
+    return this.fotoWiki(s.n);
+  },
+  /* Wikipedia: la foto principal del artículo; si es un mapa o una bandera (países), la primera foto de verdad */
+  async fotoWiki(n) {
+    const MALA = /map|mapa|flag|bandera|escudo|coat.of.arms|locator|location|logo|seal|emblem|blas[oó]n|orthographic|relief|topogr|sello|stamp|banknote|billete|diagram|chart|gr[aá]fico|signature|firma/i;
+    const nombre = String(n || '').trim(); if (!nombre) return '';
     for (const idioma of ['es', 'en']) {
       try {
-        const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(String(s.n).replace(/ /g, '_'))}`);
+        const t = encodeURIComponent(nombre.replace(/ /g, '_'));
+        const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${t}?redirect=true`);
         if (!r.ok) continue;
         const j = await r.json();
         const u = (j.originalimage && j.originalimage.width >= 700 ? j.originalimage.source : null) || (j.thumbnail && j.thumbnail.source && j.thumbnail.source.replace(/\/\d+px-/, '/1280px-'));
-        if (u && !/\.svg/i.test(u)) return u;
+        if (u && !/\.svg/i.test(u) && !MALA.test(decodeURIComponent(u.split('/').pop()))) return u;
+        const r2 = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent((j.titles && j.titles.canonical) || nombre.replace(/ /g, '_'))}`);
+        if (!r2.ok) continue;
+        const items = ((await r2.json()).items || []).filter(i => i.type === 'image' && /\.jpe?g$/i.test(i.title || '') && !MALA.test(i.title || ''));
+        for (const it of items.slice(0, 4)) {
+          const r3 = await fetch(`https://${idioma}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(it.title)}&prop=imageinfo&iiprop=url|size&iiurlwidth=1600&format=json&origin=*`);
+          const pg = Object.values(((await r3.json()).query || {}).pages || {})[0];
+          const ii = pg && pg.imageinfo && pg.imageinfo[0];
+          if (ii && ii.width >= 900 && ii.width >= ii.height * .9) return ii.thumburl || ii.url;
+        }
       } catch (e) { }
     }
     return '';
@@ -2452,7 +2695,7 @@ TABS.mapa = {
       </div>
       <div class="o-vmapa-zoom"><button class="o-bt o-vid t t-s" data-a="zmas">${ic('plus', 18)}</button><button class="o-bt o-vid t t-s" data-a="zmenos"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12h14"/></svg></button></div>
       <div class="o-carr">${ps.length ? ps.map((x, i) => {
-        const f = fotoParada(x), tp = TIPOS[x.tipo] || TIPOS.visita;
+        const f = fotoParada(x), tp = tipoDe(x.tipo);
         return `<button class="o-carr-c o-vid t t-g" data-a="mfoco" data-id="${x.id}" data-e="der"><span class="o-carr-f" style="${f ? `background-image:url('${f}')` : ''}">${f ? '' : ic(tp.ic, 22, 1.5)}</span><span class="o-carr-t"><span class="o-cap">${p.mdia === 'todos' ? esc(fechaCorta(x.dia)) + ' · ' : ''}${esc(x.hora || 'Sin hora')}</span><span class="o-carr-n">${esc(x.nombre)}</span><span class="o-nota o-1l">${esc(x.lugar && x.lugar.dir ? x.lugar.dir : tp.t)}</span></span></button>`;
       }).join('') : `<div class="o-carr-c o-vid o-carr-vacio" data-e="der"><span class="o-nota">No hay paradas con sitio en el mapa este día.</span></div>`}</div>
     </div>`;
@@ -2500,6 +2743,13 @@ function leerMaps(u) {
   if (n && !/^-?\d/.test(decodeURIComponent(n[1]))) o.titulo = decodeURIComponent(n[1].replace(/\+/g, ' '));
   return o;
 }
+/* El número del vídeo de TikTok (para enseñar el propio vídeo como vista previa) */
+function idTikTok(u) { const m = String(u || '').match(/\/(?:video|photo|v)\/(\d{8,})/) || String(u || '').match(/[?&]item_id=(\d{8,})/); return m ? m[1] : ''; }
+function reproductorTikTok(id, o) {
+  o = o || {};
+  const q = o.mini ? 'controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&loop=1&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=0' : 'rel=0&music_info=1&description=1&native_context_menu=0';
+  return `<iframe class="o-tt${o.mini ? ' o-tt-mini' : ''}" src="https://www.tiktok.com/player/v1/${id}?${q}" loading="lazy" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" title="Vídeo de TikTok"${o.mini ? ' tabindex="-1"' : ''}></iframe>`;
+}
 function extraerUrl(t) { const m = String(t || '').match(/https?:\/\/[^\s<>"']+/); return m ? m[0].replace(/[).,;]+$/, '') : ''; }
 
 const Ideas = {
@@ -2510,14 +2760,23 @@ const Ideas = {
     const fuente = fuenteDe(url);
     const base = { viaje: vid, url, fuente, titulo: '', cargando: true };
     if (fuente === 'maps') Object.assign(base, leerMaps(url));
+    if (fuente === 'tiktok' && idTikTok(url)) base.ttid = idTikTok(url);
     const id = nuevo('ideas', base);
     vibrar(10);
+    /* Se abre su ficha para elegir categoría y escribir una nota mientras se carga */
+    setTimeout(() => abrirIdea(id), 380);
     let info = {};
     try {
       if (Sync.activo()) info = await api('enlace-info', { url }, { ms: 30000 });
-      else if (fuente === 'tiktok') { const r = await fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(url)); const j = await r.json(); info = { titulo: j.title, autor: j.author_unique_id ? '@' + j.author_unique_id : (j.author_name || ''), imagenUrl: j.thumbnail_url }; }
+      if (fuente === 'tiktok' && !info.titulo && !info.imagen) {
+        const r = await fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(url)); const j = await r.json();
+        const vid_ = j.embed_product_id || ((j.html || '').match(/data-video-id="(\d+)"/) || [])[1];
+        info = { titulo: j.title, autor: j.author_unique_id ? '@' + j.author_unique_id : (j.author_name || ''), imagenUrl: j.thumbnail_url, ttid: vid_ };
+      }
     } catch (e) { anotar('enlace', e); }
     const campos = { cargando: false };
+    if (info.ttid) campos.ttid = String(info.ttid);
+    else if (fuente === 'tiktok' && info.final && idTikTok(info.final)) campos.ttid = idTikTok(info.final);
     if (info.titulo) campos.titulo = info.titulo.slice(0, 140);
     if (info.autor) campos.autor = info.autor;
     if (info.final && fuente === 'maps') Object.assign(campos, leerMaps(info.final));
@@ -2539,19 +2798,22 @@ TABS.ideas = {
   render(v, p) {
     p.fil = p.fil || 'todas';
     const todas = lista('ideas', i => i.viaje === v.id).sort((a, b) => (b.creado || 0) - (a.creado || 0));
-    const ls = todas.filter(i => p.fil === 'todas' || i.fuente === p.fil);
+    const ls = todas.filter(i => p.fil === 'todas' || i.fuente === p.fil || 'c:' + i.cat === p.fil);
+    const catsUsadas = []; todas.forEach(i => { if (i.cat && tipoDe(i.cat, true) && catsUsadas.indexOf(i.cat) < 0) catsUsadas.push(i.cat); });
+    const fuentesUsadas = Object.keys(FUENTES).filter(k => todas.some(i => i.fuente === k));
+    const fils = [['todas', 'Todas', '']].concat(catsUsadas.map(k => ['c:' + k, tipoDe(k).t, tipoDe(k).ic]), (fuentesUsadas.length > 1 ? fuentesUsadas : []).map(k => [k, FUENTES[k].t.replace('Google ', ''), FUENTES[k].ic]));
     const cols = [[], []]; ls.forEach((x, i) => cols[i % 2].push(x));
     return `<div class="o-cont o-tabc">
       <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button><span class="o-nota">${esc(v.nombre)}</span><span style="width:46px"></span></div>
       <div class="o-tabc-t"><h1 class="o-t1" data-e="titulo">Ideas</h1><span class="o-num o-tabc-n tn" data-e>${todas.length}</span></div>
       ${puedoEditar() ? `<div class="o-pegar o-vid" data-e><span class="o-pegar-i">${ic('link', 19)}</span><input id="f-idea" class="o-pegar-in" placeholder="Pega un enlace de TikTok, Instagram o Maps" autocomplete="off" autocapitalize="off" inputmode="url"><button class="o-pil o-peq t" data-a="pegar">${ic('paste', 16)}Pegar</button></div>` : ''}
-      <div class="o-fils" data-e><span class="o-pild"></span>${[['todas', 'Todas']].concat(Object.keys(FUENTES).map(k => [k, FUENTES[k].t.replace('Google ', '')])).map(([k, n]) => `<button class="o-fil t t-s${p.fil === k ? ' o-on' : ''}" data-a="fil" data-f="${k}">${k !== 'todas' ? ic(FUENTES[k].ic, 15) : ''}${n}</button>`).join('')}</div>
+      ${fils.length > 1 ? `<div class="o-fils" data-e><span class="o-pild"></span>${fils.map(([k, n, i]) => `<button class="o-fil t t-s${p.fil === k ? ' o-on' : ''}" data-a="fil" data-f="${k}">${i ? ic(i, 15) : ''}${esc(n)}</button>`).join('')}</div>` : ''}
       ${ls.length ? `<div class="o-mas">${cols.map(c => `<div class="o-mas-c">${c.map(tarjetaIdea).join('')}</div>`).join('')}</div>`
       : `<div class="o-vacio" data-e="pop"><div class="o-vacio-ic">${ic('idea', 30, 1.4)}</div><div class="o-t3">${todas.length ? 'Nada de aquí todavía' : 'Guardad aquí lo que os inspire'}</div><p class="o-nota">Copia el enlace de un vídeo de TikTok, una foto de Instagram o un sitio de Google Maps y pégalo arriba.</p></div>`}
     </div>`;
   },
   alPintar(el, v, p) {
-    const f = $('.o-fils', el); Anim.pildora(f, $('.o-fil.o-on', f));
+    const f = $('.o-fils', el); if (f) Anim.pildora(f, $('.o-fil.o-on', f));
     const i = $('#f-idea', el);
     if (i) {
       i.addEventListener('paste', () => setTimeout(() => { if (extraerUrl(i.value)) { Ideas.desdeEnlace(v.id, i.value); i.value = ''; i.blur(); } }, 30));
@@ -2562,11 +2824,14 @@ TABS.ideas = {
 function tarjetaIdea(x) {
   const F = FUENTES[x.fuente] || FUENTES.web, u = urlMedio(x.imagen), por = dato('personas', x.por || x._por);
   const alto = x.fuente === 'tiktok' ? 'o-alta' : x.fuente === 'maps' ? 'o-baja' : '';
+  const cat = x.cat ? tipoDe(x.cat, true) : null;
+  /* Sin foto, un TikTok enseña su propio vídeo (quieto, sin botones) */
+  const tt = !u && x.fuente === 'tiktok' && x.ttid ? reproductorTikTok(x.ttid, { mini: true }) : '';
   return `<button class="o-idea t t-g${x.cargando ? ' o-carga' : ''}${x.parada ? ' o-enplan' : ''}" data-a="idea" data-id="${x.id}" data-e="pop">
-    <span class="o-idea-img ${alto}" style="${u ? `background-image:url('${u}')` : ''}">${u ? '' : `<span class="o-idea-ph">${ic(F.ic, 30, 1.3)}</span>`}
+    <span class="o-idea-img ${alto}" style="${u ? `background-image:url('${u}')` : ''}">${u ? '' : tt || `<span class="o-idea-ph">${ic(F.ic, 30, 1.3)}</span>`}
       <span class="o-idea-src o-vido">${ic(F.ic, 14, 1.9)}</span>${x.fuente === 'tiktok' && u ? `<span class="o-idea-play">${ic('play', 16, 2)}</span>` : ''}
       ${x.parada ? `<span class="o-idea-plan o-vido">${ic('check', 13, 2.4)}En el plan</span>` : ''}</span>
-    <span class="o-idea-t">${x.cargando ? '<span class="o-brillo-t"></span><span class="o-brillo-t o-c"></span>' : `<span class="o-idea-n">${esc(x.titulo)}</span><span class="o-idea-a">${por ? avatar(por, 18) : ''}<span class="o-nota o-1l">${esc(x.autor || F.t)}</span></span>`}</span>
+    <span class="o-idea-t">${x.cargando ? '<span class="o-brillo-t"></span><span class="o-brillo-t o-c"></span>' : `${cat ? `<span class="o-idea-cat" style="--cc:${colorCat(x.cat)}">${ic(cat.ic, 13, 2)}${esc(cat.t)}</span>` : ''}<span class="o-idea-n">${esc(x.titulo)}</span>${x.nota ? `<span class="o-idea-nota">${esc(x.nota)}</span>` : ''}<span class="o-idea-a">${por ? avatar(por, 18) : ''}<span class="o-nota o-1l">${esc(x.autor || F.t)}</span></span>`}</span>
   </button>`;
 }
 Object.assign(PANT.viaje.acciones, {
@@ -2586,28 +2851,50 @@ Object.assign(PANT.viaje.acciones, {
     pa.el.scrollTop = st;
     const vac = $('.o-vacio', vt); if (vac) animar(vac, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 400, delay: 120 });
   },
-  idea: (b, e, p) => {
-    const x = dato('ideas', b.dataset.id); if (!x || x.cargando) return;
-    const v = dato('viajes', x.viaje), F = FUENTES[x.fuente] || FUENTES.web, u = urlMedio(x.imagen);
-    const c = Capa.hoja({
-      html: `<div class="o-ih" data-e="foto" style="${u ? `background-image:url('${u}')` : ''}"><span class="o-chip o-vido">${ic(F.ic, 15)}${F.t}</span></div>
-        <div class="o-t2" data-e style="margin-top:18px">${esc(x.titulo)}</div>
-        ${x.autor ? `<div class="o-nota" data-e style="margin-top:4px">${esc(x.autor)}</div>` : ''}
-        ${puedoEditar() ? `<textarea id="f-inota" class="o-in o-area" data-e rows="2" placeholder="Añade una nota para el grupo" style="margin-top:14px">${esc(x.nota || '')}</textarea>` : (x.nota ? `<p class="o-txt" data-e>${esc(x.nota)}</p>` : '')}
-        <div class="o-conf-b" data-e><a class="o-pil o-sec t" href="${esc(x.url)}" target="_blank" rel="noopener">${ic('ext', 17)}Abrir</a>${puedoEditar() && !x.parada ? `<button class="o-pil t" data-a="aPlan">${ic('plus', 17, 2)}Al plan</button>` : x.parada ? `<button class="o-pil o-sec t" data-a="verPlan">${ic('check', 17, 2)}Ver en el plan</button>` : ''}</div>
-        ${puedoEditar() && !x.parada ? `<div class="o-dsel o-ih-d" data-e>${diasDe(v).map(d => `<button class="o-dsel-b t t-s" data-a="aDia" data-d="${d}"><span class="o-nota">${'DLMXJVS'[fecha(d).getUTCDay()]}</span><span class="tn">${fecha(d).getUTCDate()}</span></button>`).join('')}</div>` : ''}
-        ${puedoEditar() ? `<button class="o-enlace o-mal t" data-a="borrarI" data-e style="display:block;margin:18px auto 0">Borrar la idea</button>` : ''}`,
-      alCerrar: () => { const n = $('#f-inota'); },
-      alAbrir: (h) => { const n = $('#f-inota', h); if (n) n.addEventListener('change', () => poner('ideas', x.id, { nota: n.value.trim() }, { callado: true })); },
-      acciones: {
-        aPlan: (bb) => { const d = $('.o-ih-d', c.hoja); d.classList.add('o-ver'); animar(d, [{ opacity: 0, transform: 'translateY(-8px)' }, { opacity: 1, transform: 'none' }], { duration: 360 }); $$('.o-dsel-b', d).forEach((z, i) => animar(z, [{ opacity: 0, transform: 'scale(.8)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: i * 30, easing: CURVA.muelle })); },
-        aDia: (bb) => { const n = $('#f-inota', c.hoja); if (n) poner('ideas', x.id, { nota: n.value.trim() }, { callado: true }); pasarIdea(dato('ideas', x.id), bb.dataset.d); c.cerrar(); },
-        verPlan: () => { const pr = dato('paradas', x.parada); c.cerrar(); if (pr) setTimeout(() => Nav.ir('parada', { id: pr.id }), 300); },
-        borrarI: () => { borrar('ideas', x.id); c.cerrar(); aviso('Idea borrada', { accion: { t: 'Deshacer', f: () => poner('ideas', x.id, { _b: 0 }) } }); }
-      }
-    });
-  }
+  idea: (b) => abrirIdea(b.dataset.id)
 });
+
+/* Ficha de una idea: su vídeo o foto, la categoría, una nota para el grupo y pasarla al plan */
+function abrirIdea(id) {
+  const x0 = dato('ideas', id); if (!x0) return;
+  const v = dato('viajes', x0.viaje);
+  const html = () => {
+    const x = dato('ideas', id) || x0, F = FUENTES[x.fuente] || FUENTES.web, u = urlMedio(x.imagen);
+    const video = x.fuente === 'tiktok' && x.ttid;
+    return `${video ? `<div class="o-ih o-ih-tt" data-e="foto">${reproductorTikTok(x.ttid)}</div>` : `<div class="o-ih${x.cargando ? ' o-carga' : ''}" data-e="foto" style="${u ? `background-image:url('${u}')` : ''}">${u ? '' : `<span class="o-idea-ph">${ic(F.ic, 34, 1.3)}</span>`}<span class="o-chip o-vido">${ic(F.ic, 15)}${F.t}</span></div>`}
+      <div class="o-t2" data-e style="margin-top:18px">${x.cargando && !x.titulo ? 'Leyendo el enlace…' : esc(x.titulo)}</div>
+      ${x.autor ? `<div class="o-nota" data-e style="margin-top:4px">${esc(x.autor)}</div>` : ''}
+      ${puedoEditar() ? `<div class="o-campo" data-e style="margin-top:16px"><span class="o-etq">Categoría</span><div id="i-cats">${chipsCat(x.cat || '', { a: 'icat' })}</div></div>
+        <label class="o-campo" data-e><span class="o-etq">Nota</span><textarea id="f-inota" class="o-in o-area" rows="2" placeholder="Por qué mola, a qué hora ir, qué pedir…">${esc(x.nota || '')}</textarea></label>`
+        : `${x.cat && tipoDe(x.cat, true) ? `<div class="o-nota" data-e style="margin-top:10px">${esc(tipoDe(x.cat).t)}</div>` : ''}${x.nota ? `<p class="o-txt" data-e style="margin-top:10px">${esc(x.nota)}</p>` : ''}`}
+      <div class="o-conf-b" data-e><a class="o-pil o-sec t" href="${esc(x.url)}" target="_blank" rel="noopener">${ic('ext', 17)}Abrir</a>${puedoEditar() && !x.parada ? `<button class="o-pil t" data-a="aPlan">${ic('plus', 17, 2)}Al plan</button>` : x.parada ? `<button class="o-pil o-sec t" data-a="verPlan">${ic('check', 17, 2)}Ver en el plan</button>` : ''}</div>
+      ${puedoEditar() && !x.parada ? `<div class="o-dsel o-ih-d" data-e>${diasDe(v).map(d => `<button class="o-dsel-b t t-s" data-a="aDia" data-d="${d}"><span class="o-nota">${'DLMXJVS'[fecha(d).getUTCDay()]}</span><span class="tn">${fecha(d).getUTCDate()}</span></button>`).join('')}</div>` : ''}
+      ${puedoEditar() ? `<button class="o-enlace o-mal t" data-a="borrarI" data-e style="display:block;margin:18px auto 0">Borrar la idea</button>` : ''}`;
+  };
+  const guardarNota = () => { const n = $('#f-inota', c.hoja); if (n && dato('ideas', id) && n.value.trim() !== (dato('ideas', id).nota || '')) poner('ideas', id, { nota: n.value.trim() }); };
+  const c = Capa.hoja({
+    clase: 'o-hoja-alta',
+    html: `<div class="o-hoja-scroll">${html()}</div>`,
+    alAbrir: (h, cc, otra) => { const n = $('#f-inota', h); if (n && !n.dataset.ok) { n.dataset.ok = '1'; n.addEventListener('change', guardarNota); n.addEventListener('blur', guardarNota); } },
+    alCerrar: () => { guardarNota(); clearInterval(mirar); },
+    acciones: {
+      icat: (bb) => { const x = dato('ideas', id), k = x.cat === bb.dataset.k ? '' : bb.dataset.k; marcarCat(bb, !!k); poner('ideas', id, { cat: k }, { callado: true }); Nav.refrescar(); },
+      catNueva: async () => { const k = await nuevaCategoria(); if (!k) return; poner('ideas', id, { cat: k }, { callado: true }); const box = $('#i-cats', c.hoja); box.innerHTML = chipsCat(k, { a: 'icat' }); const bb = $('.o-cat.o-on', box); if (bb) { bb.scrollIntoView({ inline: 'center', block: 'nearest' }); Anim.salto(bb); } Nav.refrescar(); },
+      aPlan: () => { const d = $('.o-ih-d', c.hoja); d.classList.add('o-ver'); animar(d, [{ opacity: 0, transform: 'translateY(-8px)' }, { opacity: 1, transform: 'none' }], { duration: 360 }); $$('.o-dsel-b', d).forEach((z, i) => animar(z, [{ opacity: 0, transform: 'scale(.8)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: i * 30, easing: CURVA.muelle })); },
+      aDia: (bb) => { guardarNota(); pasarIdea(dato('ideas', id), bb.dataset.d); c.cerrar(); },
+      verPlan: () => { const pr = dato('paradas', dato('ideas', id).parada); c.cerrar(); if (pr) setTimeout(() => Nav.ir('parada', { id: pr.id }), 300); },
+      borrarI: () => { borrar('ideas', id); c.cerrar(); aviso('Idea borrada', { accion: { t: 'Deshacer', f: () => poner('ideas', id, { _b: 0 }) } }); }
+    }
+  });
+  /* Mientras se lee el enlace, la ficha se completa sola (sin tocar lo que estás escribiendo) */
+  let antes = JSON.stringify(Object.assign({}, dato('ideas', id), { nota: '', cat: '' }));
+  const mirar = setInterval(() => {
+    const x = dato('ideas', id); if (!x) return clearInterval(mirar);
+    const ahora = JSON.stringify(Object.assign({}, x, { nota: '', cat: '' }));
+    if (ahora !== antes) { antes = ahora; morph($('.o-hoja-scroll', c.hoja), html()); }
+    if (!x.cargando) setTimeout(() => clearInterval(mirar), 1500);
+  }, 500);
+}
 
 /* ---- 10_docs.js ---- */
 /* ============================ DOCUMENTOS Y RESERVAS ============================

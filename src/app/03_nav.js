@@ -58,7 +58,7 @@ const Nav = {
       const dest = $(o.vuela.hacia, nueva.el);
       if (vieja) animar(vieja.el, [{ transform: 'none', opacity: 1 }, { transform: 'scale(.96)', opacity: .6 }], { duration: 560, easing: CURVA.entrar });
       const pr = animar(nueva.el, [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
-      Anim.vuela(o.vuela.desde, dest, { ms: 620, imagen: o.vuela.imagen });
+      Anim.vuela(o.vuela.desde, dest, { ms: 620, imagen: o.vuela.imagen, caja: o.vuela.caja });
       Anim.entrar(nueva.el, { retraso: 260, paso: 45 });
       ent && ent();
       await Promise.all([pr, espera(620)]);
@@ -221,7 +221,7 @@ const Capa = {
     });
     this.arrastre(c);
     if (o.alAbrir) o.alAbrir(c.hoja, c);
-    c.cerrar = () => this.cerrar(c);
+    c.cerrar = (forzar) => this.cerrar(c, 0, forzar === true);
     c.repintar = () => { morph($('.o-hoja-c', el), typeof o.html === 'function' ? o.html() : o.html); if (o.alAbrir) o.alAbrir(c.hoja, c, true); };
     return c;
   },
@@ -249,9 +249,18 @@ const Capa = {
       else { animar(c.hoja, [{ transform: `translateY(${y}px)` }, { transform: 'none' }], { duration: 380, easing: CURVA.muelle }); $('.o-velo', c.el).style.opacity = 1; }
     });
   },
-  async cerrar(c, desde) {
+  async cerrar(c, desde, forzar) {
     c = c || this.abiertas[this.abiertas.length - 1];
-    if (!c || c.cerrando) return; c.cerrando = true;
+    if (!c || c.cerrando) return;
+    /* Una hoja puede preguntar antes de irse (p. ej. guardar como borrador) */
+    if (!forzar && c.o && c.o.antesCerrar) {
+      if (c.preguntando) return;
+      c.preguntando = true;
+      let ok = true; try { ok = await c.o.antesCerrar(c); } catch (e) { }
+      c.preguntando = false;
+      if (!ok) { if (desde) { animar(c.hoja, [{ transform: `translateY(${desde}px)` }, { transform: 'none' }], { duration: 420, easing: CURVA.muelle }); $('.o-velo', c.el).style.opacity = 1; } return; }
+    }
+    c.cerrando = true;
     this.abiertas = this.abiertas.filter(x => x !== c);
     this.detras();
     if (c.tipo === 'menu') { await animar(c.panel, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 160, easing: CURVA.salir }); c.el.remove(); return; }
@@ -278,6 +287,19 @@ const Capa = {
       const b = e.target.closest('.o-menu-f');
       this.cerrar(c);
       if (b) { const o = ops[+b.dataset.i]; setTimeout(() => o.f && o.f(), 120); }
+    });
+  },
+  /* Pregunta con varias salidas. o.ops = [{ k, t, clase }]. Devuelve la k elegida o null */
+  preguntar(o) {
+    return new Promise(ok => {
+      let r = null;
+      const c = this.hoja({
+        clase: 'o-hoja-peq',
+        html: `<div class="o-conf"><div class="o-t3" data-e>${esc(o.titulo)}</div>${o.texto ? `<p class="o-txt" data-e style="margin-top:8px">${esc(o.texto)}</p>` : ''}
+          <div class="o-conf-v">${o.ops.map(x => `<button class="o-pil t ${x.clase || ''}" data-a="op" data-k="${x.k}" data-e>${x.ic ? ic(x.ic, 18) : ''}${esc(x.t)}</button>`).join('')}</div></div>`,
+        acciones: { op: (b) => { r = b.dataset.k; c.cerrar(); } },
+        alCerrar: () => ok(r)
+      });
     });
   },
   confirmar(o) {

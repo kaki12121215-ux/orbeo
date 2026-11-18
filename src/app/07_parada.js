@@ -3,7 +3,7 @@ PANT.parada = {
   render(p) {
     const x = dato('paradas', p.id);
     if (!x) return `<div class="o-cont"><div class="o-cab"><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button></div><div class="o-vacio" style="margin-top:30vh"><div class="o-t2">Esta parada ya no está</div></div></div>`;
-    const v = dato('viajes', x.viaje) || {}, tp = TIPOS[x.tipo] || TIPOS.visita;
+    const v = dato('viajes', x.viaje) || {}, tp = tipoDe(x.tipo);
     const foto = fotoParada(x), casa = TZ_CASA(), otra = v.tz && x.hora && desfase(v.tz) !== desfase(casa);
     const enCasa = otra ? cambiarZona(x.dia, x.hora, v.tz, casa) : null;
     const por = dato('personas', x.por || x._por);
@@ -35,7 +35,7 @@ PANT.parada = {
   },
   alDeslizar(el) {
     const f = $('.o-pd-foto', el), y = el.scrollTop;
-    if (f && !reducido()) f.style.transform = y < 0 ? `scale(${1 - y * .0025})` : `translateY(${Math.min(y, 600) * .3}px)`;
+    if (f) f.style.transform = y < 0 ? `translateY(${y}px)` : reducido() ? '' : `translateY(${Math.min(y, 600) * .3}px)`;
     /* Al bajar, arriba aparece una barra de cristal con el nombre (no choca con el botón de volver) */
     const lim = (f ? f.offsetHeight : 300) - 120;
     el.classList.toggle('o-pd-col', y > lim);
@@ -116,9 +116,10 @@ function editarParada(x, o) {
     clase: 'o-hoja-alta',
     html: `<div class="o-hcab" data-e><button class="o-enlace t" data-a="cerrar">Cancelar</button><div class="o-t3">${nueva ? 'Nueva parada' : 'Editar parada'}</div><button class="o-enlace t" data-a="guardar">Guardar</button></div>
     <div class="o-hoja-scroll">
-      <label class="o-campo" data-e><span class="o-etq">Qué</span><input id="f-pn" class="o-in o-in-g" placeholder="Templo, restaurante, museo…" value="${esc(f.nombre)}" autocomplete="off"><div class="o-sugs" id="p-sugs"></div></label>
-      <div class="o-lugar-sel" id="p-lugar" data-e>${lugarTxt(f.lugar)}</div>
-      <div class="o-campo" data-e><span class="o-etq">Tipo</span><div class="o-seg o-seg-s"><span class="o-pild"></span>${Object.keys(TIPOS).map(k => `<button class="o-seg-b t t-s${f.tipo === k ? ' o-on' : ''}" data-a="tipo" data-k="${k}">${ic(TIPOS[k].ic, 18)}<span>${TIPOS[k].t}</span></button>`).join('')}</div></div>
+      <label class="o-campo" data-e><span class="o-etq">Título</span><input id="f-pn" class="o-in o-in-g" placeholder="Vuelo a París, cena con amigos…" value="${esc(f.nombre)}" autocomplete="off"></label>
+      <div class="o-campo" data-e><span class="o-etq">Ubicación <span class="o-opc">si procede</span></span>
+        <div id="p-lugar">${f.lugar ? `<div class="o-lugar-sel">${lugarTxt(f.lugar, (f.fotos || [])[0] && urlMedio(f.fotos[0]))}</div>` : buscadorLugar()}</div><div class="o-sugs" id="p-sugs"></div></div>
+      <div class="o-campo" data-e><span class="o-etq">Categoría</span><div id="p-cats">${chipsCat(f.tipo, { a: 'tipo' })}</div></div>
       <div class="o-campo" data-e><span class="o-etq">Día</span><div class="o-dsel">${diasDe(v).map((d, i) => `<button class="o-dsel-b t t-s${d === f.dia ? ' o-on' : ''}" data-a="pdia" data-d="${d}"><span class="o-nota">${'DLMXJVS'[fecha(d).getUTCDay()]}</span><span class="tn">${fecha(d).getUTCDate()}</span></button>`).join('')}</div></div>
       <div class="o-dos" data-e>${campo('ph', 'Hora', '', f.hora, { tipo: 'time' })}${campo('pf', 'Hasta (opcional)', '', f.fin, { tipo: 'time' })}</div>
       ${otra ? `<div class="o-campo o-tzq" data-e><span class="o-etq">¿De qué hora hablas?</span>
@@ -130,8 +131,11 @@ function editarParada(x, o) {
     </div>`,
     alAbrir: (h, cc) => {
       $$('.o-seg', h).forEach(s => Anim.pildora(s, $('.o-on', s)));
-      const i = $('#f-pn', h);
-      i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintar(h, await Lugar.buscar(i.value, { cerca: v })), 280); });
+      cc.buscador = () => {
+        const i = $('#f-pl', h); if (!i) return;
+        i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintar(h, await Lugar.buscar(i.value, { cerca: v })), 280); });
+      };
+      cc.buscador();
       const eq = () => {
         const e = $('#p-eq', h); if (!e) return;
         const hv = $('#f-ph', h).value; if (!hv) { e.textContent = ''; return; }
@@ -139,29 +143,32 @@ function editarParada(x, o) {
         e.innerHTML = zonaElegida === 'destino' ? `Son las <b class="tn">${r.hora}</b> en ${esc(nombreZona(casa))}` : `En ${esc(nombreZona(v.tz))} serán las <b class="tn">${r.hora}</b>${r.dia !== f.dia ? ' del ' + esc(fechaCorta(r.dia)) : ''}. Se guarda así.`;
       };
       $('#f-ph', h).addEventListener('input', eq); cc.eq = eq; eq();
+      if (o.hora) $('#f-ph', h).value = o.hora;
       if (o.foco === 'dia') setTimeout(() => $('.o-dsel', h).scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
       const on = $('.o-dsel-b.o-on', h); if (on) on.parentNode.scrollLeft = on.offsetLeft - 120;
     },
     acciones: {
-      tipo: (b) => { f.tipo = b.dataset.k; $$('.o-seg-b', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(b.parentNode, b); },
+      tipo: (b) => { f.tipo = b.dataset.k; marcarCat(b, true); },
+      catNueva: async () => { const k = await nuevaCategoria(); if (!k) return; f.tipo = k; const box = $('#p-cats', c.hoja); box.innerHTML = chipsCat(f.tipo, { a: 'tipo' }); const b = $('.o-cat.o-on', box); if (b) { b.scrollIntoView({ inline: 'center', block: 'nearest' }); Anim.salto(b); } },
       pdia: (b) => { f.dia = b.dataset.d; $$('.o-dsel-b', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.salto(b); c.eq && c.eq(); },
       zona: (b) => { zonaElegida = b.dataset.z; $$('.o-seg-b', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(b.parentNode, b); c.eq(); },
       sug: async (b) => {
         const s = await Lugar.completar(JSON.parse(b.dataset.j)), h = c.hoja;
-        f.lugar = { lat: s.lat, lng: s.lng, dir: s.sub || '', pid: s.pid || '' };
-        const inp = $('#f-pn', h); if (!inp.value.trim() || s.n.toLowerCase().indexOf(inp.value.trim().toLowerCase()) === 0) inp.value = s.n;
+        f.lugar = { lat: s.lat, lng: s.lng, dir: [s.n, s.sub].filter(Boolean).join(', '), pid: s.pid || '' };
+        /* El título solo se rellena si está vacío: «Vuelo a París» se queda como lo escribiste */
+        const inp = $('#f-pn', h); if (!inp.value.trim()) inp.value = s.n;
         $('#p-sugs', h).innerHTML = '';
-        if (s.tipo) f.tipo = s.tipo;
-        const box = $('#p-lugar', h); box.innerHTML = lugarTxt(f.lugar);
+        if (s.tipo && nueva && f.tipo === 'visita') { f.tipo = s.tipo; const b = $(`.o-cat[data-k="${s.tipo}"]`, h); if (b) marcarCat(b, true); }
+        const box = $('#p-lugar', h); box.innerHTML = `<div class="o-lugar-sel">${lugarTxt(f.lugar)}</div>`;
         animar(box, [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: CURVA.muelle });
-        if (!(f.fotos || []).length) { const u = await Lugar.foto(s).catch(() => ''); if (u) { f.fotos = [{ url: u }]; box.innerHTML = lugarTxt(f.lugar, u); } }
+        if (!(f.fotos || []).length) { const u = await Lugar.foto(s).catch(() => ''); if (u) { f.fotos = [{ url: u }]; box.innerHTML = `<div class="o-lugar-sel">${lugarTxt(f.lugar, u)}</div>`; } }
       },
-      quitarLugar: () => { f.lugar = null; $('#p-lugar', c.hoja).innerHTML = lugarTxt(null); },
+      quitarLugar: () => { f.lugar = null; f.fotos = (f.fotos || []).filter(m => !m.url); $('#p-lugar', c.hoja).innerHTML = buscadorLugar(); c.buscador(); $('#f-pl', c.hoja).focus(); },
       guardar: () => {
         const h = c.hoja, val = id => $('#f-' + id, h).value.trim();
         f.nombre = val('pn'); f.nota = val('pno'); f.enlaces = val('pen').split(/\s*\n\s*/).filter(Boolean);
         let hora = val('ph'), fin = val('pf');
-        if (!f.nombre) { Anim.no($('#f-pn', h).parentNode); return error(h, 'Escribe qué es la parada.'); }
+        if (!f.nombre) { Anim.no($('#f-pn', h).parentNode); return error(h, 'Ponle un título a la parada.'); }
         if (otra && zonaElegida === 'casa' && hora) {
           const r = cambiarZona(f.dia, hora, casa, v.tz); hora = r.hora; f.dia = diasDe(v).indexOf(r.dia) >= 0 ? r.dia : f.dia;
           if (fin) fin = cambiarZona(f.dia, fin, casa, v.tz).hora;
@@ -181,8 +188,11 @@ function editarParada(x, o) {
     $$('.o-sug', box).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 40 }));
   }
 }
+function buscadorLugar() {
+  return `<div class="o-lbus">${ic('search', 18)}<input id="f-pl" class="o-lbus-in" placeholder="Busca el sitio para verlo en el mapa" autocomplete="off"></div>`;
+}
 function lugarTxt(l, foto) {
-  if (!l) return `<span class="o-nota">${ic('search', 16)} Escribe arriba y elige el sitio para verlo en el mapa</span>`;
+  if (!l) return '';
   return `<span class="o-lugar-f" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : ic('pin', 18)}</span><span class="o-1l">${esc(l.dir || (l.lat.toFixed(4) + ', ' + l.lng.toFixed(4)))}</span><button class="o-bt t t-s" data-a="quitarLugar" style="width:36px;height:36px">${ic('close', 16)}</button>`;
 }
 

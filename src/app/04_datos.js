@@ -44,6 +44,52 @@ const TIPOS = {
   visita: { t: 'Visita', ic: 'pin' }, comida: { t: 'Comida', ic: 'food' }, actividad: { t: 'Actividad', ic: 'ticket' },
   transporte: { t: 'Transporte', ic: 'train' }, vuelo: { t: 'Vuelo', ic: 'plane' }, hotel: { t: 'Alojamiento', ic: 'bed' }
 };
+Object.assign(TIPOS, { compras: { t: 'Compras', ic: 'bag' }, noche: { t: 'Noche', ic: 'moon' }, naturaleza: { t: 'Naturaleza', ic: 'tree' } });
+/* ---------- Categorías: las de siempre más las que cree el grupo (se guardan y salen en toda la app) */
+function categorias() {
+  const o = Object.assign({}, TIPOS);
+  lista('categorias').sort((a, b) => (a.creado || 0) - (b.creado || 0)).forEach(c => { o[c.id] = { t: c.t, ic: 'tag', propia: true }; });
+  return o;
+}
+function tipoDe(k, sinDefecto) {
+  if (TIPOS[k]) return TIPOS[k];
+  const c = k && dato('categorias', k);
+  if (c) return { t: c.t, ic: 'tag', propia: true };
+  return sinDefecto ? null : TIPOS.visita;
+}
+/* Fila de categorías para elegir una. o.a = acción al tocar */
+function chipsCat(sel, o) {
+  o = o || {};
+  const cs = categorias();
+  return `<div class="o-cats">${Object.keys(cs).map(k => `<button class="o-cat t t-s${k === sel ? ' o-on' : ''}" data-a="${o.a || 'cat'}" data-k="${k}">${ic(cs[k].ic, 16, 1.8)}<span>${esc(cs[k].t)}</span></button>`).join('')}<button class="o-cat o-cat-mas t t-s" data-a="catNueva">${ic('plus', 16, 2)}<span>Nueva</span></button></div>`;
+}
+function marcarCat(b, on) {
+  $$('.o-cat', b.parentNode).forEach(x => x.classList.toggle('o-on', on && x === b));
+  if (on) Anim.salto(b);
+}
+/* Crea una categoría propia y la devuelve (o null si se cancela) */
+function nuevaCategoria() {
+  return new Promise(ok => {
+    let r = null;
+    const c = Capa.hoja({
+      clase: 'o-hoja-peq',
+      html: `<div class="o-conf"><div class="o-t3" data-e>Nueva categoría</div><p class="o-nota" data-e style="margin-top:6px">Se guarda para todo el grupo y sale en paradas e ideas.</p>
+        <input id="f-catn" class="o-in" data-e placeholder="Miradores, cafés bonitos, playas…" autocomplete="off" style="margin-top:16px" maxlength="28">
+        <div class="o-conf-b" data-e><button class="o-pil o-sec t" data-a="cerrar">Cancelar</button><button class="o-pil t" data-a="crearCat">Crear</button></div></div>`,
+      alAbrir: (h) => { const i = $('#f-catn', h); setTimeout(() => i.focus(), 350); i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('[data-a="crearCat"]', h).click(); } }); },
+      acciones: {
+        crearCat: () => {
+          const i = $('#f-catn', c.hoja), t = i.value.trim();
+          if (!t) { Anim.no(i); return; }
+          const ya = Object.entries(categorias()).find(([k, x]) => x.t.toLowerCase() === t.toLowerCase());
+          r = ya ? ya[0] : nuevo('categorias', { t: t.slice(0, 1).toUpperCase() + t.slice(1) }, { callado: true });
+          c.cerrar();
+        }
+      },
+      alCerrar: () => ok(r)
+    });
+  });
+}
 const TIPOS_DOC = {
   vuelo: { t: 'Vuelo', ic: 'plane' }, hotel: { t: 'Alojamiento', ic: 'bed' }, tren: { t: 'Tren o bus', ic: 'train' },
   coche: { t: 'Coche', ic: 'car' }, entrada: { t: 'Entrada', ic: 'ticket' }, seguro: { t: 'Seguro', ic: 'shield' }, otro: { t: 'Otro', ic: 'doc' }
@@ -114,13 +160,14 @@ function crearDemo() {
   PK('k31', 3, '09:00', 'Templo Kodai-ji', 'visita', 35.0006, 135.7810, { fotos: [F('kio_kiyomizu2')], nota: 'Jardín zen y el bosquecillo de bambú pequeño.' });
   PK('k32', 3, '11:30', 'Últimas compras en Teramachi', 'actividad', 35.0068, 135.7676);
   PK('k33', 3, '15:10', 'Haruka al aeropuerto de Kansai', 'transporte', 34.9858, 135.7588, { fin: '16:28', nota: 'Andén 30. Asientos reservados en el coche 3.', por: 'p2' });
+  pon('categorias', 'cmira', { t: 'Miradores' });
   const IK = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vkt', titulo, fuente, url, imagen: img ? F(img) : null }, extra || {}));
-  IK('ik1', 'Los 5 mejores ramen de Kioto', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/1', 'kio_ramen', { autor: '@comeconjapon', por: 'p3' });
-  IK('ik2', 'Pontocho cuando encienden los farolillos', 'instagram', 'https://www.instagram.com/p/ejemplo1/', 'kio_pontocho', { autor: '@kyoto.light', por: 'p2' });
-  IK('ik3', 'Arces rojos de Arashiyama', 'instagram', 'https://www.instagram.com/p/ejemplo2/', 'kio_arces', { autor: '@momiji.days' });
-  IK('ik4', 'Kinkaku-ji al abrir', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/2', 'kio_kinkaku', { autor: '@viajaconmapa' });
-  IK('ik5', 'Ceremonia del té Camellia', 'maps', 'https://maps.google.com/?q=34.9967,135.7805', 'kio_te', { lugar: { lat: 34.9967, lng: 135.7805 }, nota: 'Tiene muy buenas reseñas y la explican en inglés.', por: 'p1' });
-  IK('ik6', 'Ninenzaka sin gente', 'maps', 'https://maps.google.com/?q=34.9981,135.7808', 'kio_yasaka', { lugar: { lat: 34.9981, lng: 135.7808 } });
+  IK('ik1', 'Los 5 mejores ramen de Kioto', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/1', 'kio_ramen', { autor: '@comeconjapon', por: 'p3', cat: 'comida', nota: 'El de Menbaka Fire Ramen lo flambean delante. Ir pronto, hay cola.' });
+  IK('ik2', 'Pontocho cuando encienden los farolillos', 'instagram', 'https://www.instagram.com/p/ejemplo1/', 'kio_pontocho', { autor: '@kyoto.light', por: 'p2', cat: 'noche' });
+  IK('ik3', 'Arces rojos de Arashiyama', 'instagram', 'https://www.instagram.com/p/ejemplo2/', 'kio_arces', { autor: '@momiji.days', cat: 'naturaleza' });
+  IK('ik4', 'Kinkaku-ji al abrir', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/2', 'kio_kinkaku', { autor: '@viajaconmapa', cat: 'cmira', nota: 'Abre a las 9:00. Llegar 15 minutos antes.' });
+  IK('ik5', 'Ceremonia del té Camellia', 'maps', 'https://maps.google.com/?q=34.9967,135.7805', 'kio_te', { lugar: { lat: 34.9967, lng: 135.7805 }, nota: 'Tiene muy buenas reseñas y la explican en inglés.', por: 'p1', cat: 'actividad' });
+  IK('ik6', 'Ninenzaka sin gente', 'maps', 'https://maps.google.com/?q=34.9981,135.7808', 'kio_yasaka', { lugar: { lat: 34.9981, lng: 135.7808 }, cat: 'cmira' });
   const DK = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vkt', tipo, titulo, cuando }, extra || {}));
   DK('dk1', 'vuelo', 'Madrid → Osaka Kansai', K(0) + ' 09:05', { codigo: 'K7Q2LM', detalles: 'Vuelo con escala en Helsinki. 4 pasajeros. Maleta de 23 kg cada uno.', por: 'p2' });
   DK('dk2', 'tren', 'Shinkansen Nozomi', K(0) + ' 12:03', { codigo: 'JR-4471', detalles: 'Coche 7, asientos 12 A a D' });
@@ -148,10 +195,10 @@ function crearDemo() {
   PL('l22', 2, '10:00', 'Palacio da Pena', 'visita', 38.7876, -9.3906, { fotos: [F('lis_sintra')], nota: 'Entrada con hora a las 10:00. Subir en el autobús 434.', por: 'p1' });
   PL('l23', 2, '20:30', 'Vuelo de vuelta a Madrid', 'vuelo', 38.7742, -9.1342);
   const IL = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vls', titulo, fuente, url, imagen: img ? F(img) : null }, extra || {}));
-  IL('il1', 'Los mejores pastéis de nata de Lisboa', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/3', 'lis_nata', { autor: '@lisboacome', por: 'p3' });
-  IL('il2', 'Fachadas de azulejo en Alfama', 'instagram', 'https://www.instagram.com/p/ejemplo3/', 'lis_azulejos', { autor: '@azulejo.walks' });
-  IL('il3', 'Arte urbano en Bairro Alto', 'instagram', 'https://www.instagram.com/p/ejemplo4/', 'lis_bairro', { autor: '@streetlisboa', por: 'p2' });
-  IL('il4', 'Miradouro da Senhora do Monte', 'maps', 'https://maps.google.com/?q=38.7192,-9.1325', 'lis_alfama', { lugar: { lat: 38.7192, lng: -9.1325 }, nota: 'El mirador más alto, menos gente que Santa Luzia.' });
+  IL('il1', 'Los mejores pastéis de nata de Lisboa', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/3', 'lis_nata', { autor: '@lisboacome', por: 'p3', cat: 'comida', nota: 'Manteigaria mejor que Belém, y sin cola.' });
+  IL('il2', 'Fachadas de azulejo en Alfama', 'instagram', 'https://www.instagram.com/p/ejemplo3/', 'lis_azulejos', { autor: '@azulejo.walks', cat: 'visita' });
+  IL('il3', 'Arte urbano en Bairro Alto', 'instagram', 'https://www.instagram.com/p/ejemplo4/', 'lis_bairro', { autor: '@streetlisboa', por: 'p2', cat: 'noche' });
+  IL('il4', 'Miradouro da Senhora do Monte', 'maps', 'https://maps.google.com/?q=38.7192,-9.1325', 'lis_alfama', { lugar: { lat: 38.7192, lng: -9.1325 }, nota: 'El mirador más alto, menos gente que Santa Luzia.', cat: 'cmira' });
   IL('il5', 'Sintra en un día', 'web', 'https://www.ejemplo.com/sintra', 'lis_sintra', { nota: 'Orden recomendado: Pena, Moorish y Quinta da Regaleira.' });
   const DL = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vls', tipo, titulo, cuando }, extra || {}));
   DL('dl1', 'vuelo', 'Madrid → Lisboa', L(0) + ' 09:15', { codigo: 'TP1027', detalles: '3 pasajeros · solo equipaje de mano', por: 'p2' });

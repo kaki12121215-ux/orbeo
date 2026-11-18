@@ -91,22 +91,26 @@ const Anim = {
   async vuela(desde, hacia, o) {
     o = o || {};
     if (!desde || !hacia || reducido()) return;
-    const a = desde.getBoundingClientRect(), b = hacia.getBoundingClientRect();
+    /* La copia aterriza en la caja visible del destino (con sus esquinas redondeadas), no en la foto interior */
+    const caja = o.caja ? (hacia.closest(o.caja) || hacia) : hacia;
+    const a = desde.getBoundingClientRect(), b = caja.getBoundingClientRect();
     if (!a.width || !b.width) return;
     const c = document.createElement('div');
     c.className = 'o-vuelo';
-    const radA = getComputedStyle(desde).borderRadius, radB = getComputedStyle(hacia).borderRadius;
+    const radio = x => { const s = getComputedStyle(x); return [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomRightRadius, s.borderBottomLeftRadius].join(' '); };
+    const radA = radio(desde), radB = radio(caja);
     c.style.cssText = `left:${a.left}px;top:${a.top}px;width:${a.width}px;height:${a.height}px;border-radius:${radA};background-image:${o.imagen ? `url("${o.imagen}")` : getComputedStyle(desde).backgroundImage}`;
     document.body.appendChild(c);
-    hacia.style.visibility = 'hidden';
-    const giro = o.giro || 0;
+    hacia.style.opacity = '0';
+    /* Por si algo falla, el destino nunca se queda en blanco */
+    const seguro = setTimeout(() => { hacia.style.opacity = ''; }, (o.ms || 700) + 400);
     await animar(c, [
-      { left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px', borderRadius: radA, transform: 'rotate(0deg)' },
-      { offset: .55, transform: `rotate(${giro}deg)` },
-      { left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', borderRadius: radB, transform: 'rotate(0deg)' }
+      { left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px', borderRadius: radA },
+      { left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', borderRadius: radB }
     ], { duration: o.ms || 700, easing: CURVA.entrar, fill: 'forwards' });
-    hacia.style.visibility = '';
-    animar(c, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, siempre: true }).then(() => c.remove());
+    clearTimeout(seguro);
+    hacia.style.opacity = '';
+    animar(c, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, siempre: true }).then(() => c.remove());
   },
   /* Revela un elemento con un círculo que crece desde un punto */
   circulo(el, x, y, ms) {
@@ -233,6 +237,11 @@ const ICONOS = {
   bell: '<path d="M6 16.5V11a6 6 0 0112 0v5.5l1.5 1.5h-15zM10 20.5h4"/>',
   phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>',
   desktop: '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20.5h6M12 16.5v4"/>',
+  tag: '<path d="M3.5 12.2V4.8c0-.7.6-1.3 1.3-1.3h7.4l8.3 8.3a1.3 1.3 0 010 1.8l-7.4 7.4a1.3 1.3 0 01-1.8 0z"/><circle cx="8.2" cy="8.2" r="1.4"/>',
+  bag: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 016 0V8"/>',
+  list: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.6" cy="6.5" r=".9"/><circle cx="4.6" cy="12" r=".9"/><circle cx="4.6" cy="17.5" r=".9"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="3.5"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/>',
+  tree: '<path d="M12 3l6 8h-3.5l4.5 6H5l4.5-6H6z"/><path d="M12 17v4"/>',
   rotate: '<path d="M4.5 12a7.5 7.5 0 0113-5.1l2 2M19.5 4v5h-5M19.5 12a7.5 7.5 0 01-13 5.1l-2-2M4.5 20v-5h5"/>'
 };
 function ic(n, s, w) { return `<svg class="ic" width="${s || 22}" height="${s || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.7}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n] || ''}</svg>`; }

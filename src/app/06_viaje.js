@@ -92,7 +92,7 @@ function cabViaje(v, o) {
       <button class="o-bt o-vido t t-s" data-a="mas" aria-label="Más">${ic('more', 20, 2.4)}</button>
     </div>
     <div class="o-vcab-txt">
-      <div class="o-cap o-claro" data-e>${esc(rango(v.desde, v.hasta))} · ${diasDe(v).length} días</div>
+      <div class="o-vcab-fecha" data-e><span class="o-chip o-vido">${ic('plan', 14, 1.9)}${esc(rango(v.desde, v.hasta))}<span class="o-chip-sep"></span>${diasDe(v).length} días</span></div>
       <h1 class="o-vcab-n" data-e="titulo">${esc(v.nombre)}</h1>
       <div class="o-fila o-vcab-pie" data-e><span>${esc(v.lugar || v.ciudad || '')}</span><button class="o-avs t" data-a="grupo">${ps.slice(0, 5).map(x => avatar(x, 28)).join('')}</button></div>
     </div>
@@ -103,6 +103,7 @@ function cabViaje(v, o) {
 TABS.plan = {
   render(v, p) {
     const dias = diasDe(v), hoy = hoyEn(v);
+    p.vista = p.vista || S.pref.vistaPlan || 'lista';
     if (!p.dia || dias.indexOf(p.dia) < 0) p.dia = dias.indexOf(hoy) >= 0 ? hoy : dias[0];
     const ps = paradasDe(v.id, p.dia);
     const n = dias.indexOf(p.dia) + 1;
@@ -120,10 +121,11 @@ TABS.plan = {
         <div class="o-dcab-n tn" data-v="${fecha(p.dia).getUTCDate()}">${fecha(p.dia).getUTCDate()}</div>
         <div class="o-dcab-t"><div class="o-dcab-s">${cap(diaSemana(p.dia))}${p.dia === hoy ? ' <span class="o-hoy-et">hoy</span>' : ''}</div>
         <div class="o-cap">${esc(MESES[fecha(p.dia).getUTCMonth()])} · Día ${n} de ${dias.length}${t ? ` · <span class="o-tiempo">${t.ic} ${t.max}°</span>` : ''}</div></div>
+        <div class="o-vista"><span class="o-pild"></span><button class="o-vista-b t t-s${p.vista !== 'cal' ? ' o-on' : ''}" data-a="vista" data-v="lista" aria-label="Itinerario">${ic('list', 19, 1.8)}</button><button class="o-vista-b t t-s${p.vista === 'cal' ? ' o-on' : ''}" data-a="vista" data-v="cal" aria-label="Calendario">${ic('cal', 19, 1.7)}</button></div>
       </div>
-      <div class="o-linea-t" data-dia="${p.dia}">
+      ${p.vista === 'cal' ? calDia(v, p.dia, ps) : `<div class="o-linea-t" data-dia="${p.dia}">
         ${ps.length ? ps.map((x, i) => filaParada(x, i, ps, ah, v)).join('') : `<div class="o-vacio-dia" data-e="pop"><div class="o-vacio-dia-o">${ic('plan', 26, 1.5)}</div><div class="o-t3">Día libre</div><p class="o-nota">${puedoEditar() ? 'Añade la primera parada o pasa una idea guardada.' : 'Todavía no hay nada planeado.'}</p></div>`}
-      </div>
+      </div>`}
       ${puedoEditar() ? `<div class="o-plan-b" data-e><button class="o-pil o-sec t t-g" data-a="nuevaParada">${ic('plus', 18, 2)}Añadir parada</button>${lista('ideas', i => i.viaje === v.id && !i.parada).length ? `<button class="o-pil o-sec t t-g" data-a="deIdea">${ic('idea', 17)}De una idea</button>` : ''}</div>` : ''}
       <button class="o-peli t t-g" data-a="peli" data-e>
         <span class="o-peli-fs">${(lista('medios', m => m.viaje === v.id && m.dia === p.dia).slice(0, 3).map(m => `<span style="background-image:url('${urlMedio(m)}')"></span>`).join('')) || `<span class="o-peli-v">${ic('film', 22, 1.5)}</span>`}</span>
@@ -135,6 +137,7 @@ TABS.plan = {
     return plan;
   },
   alPintar(el, v, p, primera, pa) {
+    const vi = $('.o-vista', el); if (vi) Anim.pildora(vi, $('.o-vista-b.o-on', vi));
     const dias = $('.o-dias', el), on = $('.o-dia.o-on', el);
     if (dias && on) {
       Anim.pildora(dias, on);
@@ -147,12 +150,57 @@ TABS.plan = {
     const f = $('.o-vcab-foto', el); if (!f || reducido()) return;
     const y = (ESCRITORIO() ? ($('.o-esc-plan', el) || el) : el).scrollTop;
     /* Solo un poco de profundidad: la foto se queda algo atrás, sin girar ni encogerse */
-    f.style.transform = y > 0 ? `translateY(${Math.min(y, 500) * .25}px)` : `scale(${1 + Math.min(-y, 200) * .0015})`;
+    f.style.transform = y > 0 ? `translateY(${Math.min(y, 500) * .25}px)` : '';
     const tx = $('.o-vcab-txt', el); if (tx) tx.style.opacity = Math.max(0, 1 - y / 300);
   }
 };
+/* ---------- Vista calendario: el día en horas, como una agenda. Cada parada ocupa su rato. */
+const COLOR_CAT = { visita: '#A8834F', comida: '#C0614A', actividad: '#6F8A4E', transporte: '#4F7398', vuelo: '#5B6FA8', hotel: '#8A5F8F', compras: '#B5577A', noche: '#465284', naturaleza: '#3F8A69' };
+const COLOR_PROPIA = ['#9A6B3F', '#5E7F8C', '#8C6A9E', '#A0563F', '#4F8A5B', '#7A7442'];
+function colorCat(k) {
+  if (COLOR_CAT[k]) return COLOR_CAT[k];
+  let h = 0; String(k || '').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) | 0; });
+  return COLOR_PROPIA[Math.abs(h) % COLOR_PROPIA.length];
+}
+const CAL_H = 64;
+function calDia(v, dia, ps) {
+  const conHora = ps.filter(x => minutos(x.hora) != null), sin = ps.filter(x => minutos(x.hora) == null);
+  const ev = conHora.map((x, i) => {
+    const a = minutos(x.hora); let b = minutos(x.fin);
+    if (b == null || b <= a) { const sig = conHora[i + 1]; b = sig && minutos(sig.hora) > a ? Math.min(minutos(sig.hora), a + 120) : a + 60; }
+    if (b - a < 40) b = a + 40;
+    return { x, a, b };
+  });
+  let ini = 8 * 60, fin = 22 * 60;
+  ev.forEach(e => { ini = Math.min(ini, Math.floor(e.a / 60) * 60); fin = Math.max(fin, Math.ceil(e.b / 60) * 60); });
+  fin = Math.min(fin, 24 * 60);
+  /* Si dos paradas se pisan, se reparten el ancho */
+  const grupos = []; let g = null, gfin = -1;
+  ev.slice().sort((p, q) => p.a - q.a).forEach(e => { if (!g || e.a >= gfin) { g = []; grupos.push(g); gfin = e.b; } else gfin = Math.max(gfin, e.b); g.push(e); });
+  grupos.forEach(gr => { const cols = []; gr.forEach(e => { let c = cols.findIndex(f => f <= e.a); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = e.b; e.col = c; }); gr.forEach(e => { e.n = cols.length; }); });
+  const y = m => (m - ini) / 60 * CAL_H;
+  const ahora = hoyEn(v) === dia ? enZona(v.tz).min : null;
+  const horas = []; for (let h = ini / 60; h <= fin / 60; h++) horas.push(h);
+  return `<div class="o-cal" data-dia="${dia}">
+    ${sin.length ? `<div class="o-cal-sin" data-e><span class="o-cap">Sin hora</span>${sin.map(x => `<button class="o-cal-chip t" data-a="parada" data-id="${x.id}" style="--cc:${colorCat(x.tipo)}"><span class="o-cal-pt"></span><span class="o-1l">${esc(x.nombre)}</span></button>`).join('')}</div>` : ''}
+    <div class="o-cal-g" data-e data-a="${puedoEditar() ? 'calHueco' : ''}" data-ini="${ini}" style="height:${y(fin) + 8}px">
+      ${horas.map(h => `<div class="o-cal-h" style="top:${y(h * 60)}px"><span class="tn">${String(h).padStart(2, '0')}:00</span></div>`).join('')}
+      <div class="o-cal-evs">
+      ${ev.map(e => {
+        const x = e.x, foto = fotoParada(x), alto = y(e.b) - y(e.a) - 4;
+        return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
+          ${foto && alto >= 54 && e.n < 3 ? `<span class="o-cal-f" style="background-image:url('${foto}')"></span>` : ''}
+          <span class="o-cal-tx"><span class="o-cal-n">${esc(x.nombre)}</span><span class="o-cal-s tn">${esc(x.hora)}${x.fin ? ' – ' + esc(x.fin) : ''}${alto >= 70 && x.lugar && x.lugar.dir ? ' · ' + esc(x.lugar.dir.split(',')[0]) : ''}</span></span>
+        </button>`;
+      }).join('')}
+      </div>
+      ${ahora != null && ahora >= ini && ahora <= fin ? `<div class="o-cal-ya" style="top:${y(ahora)}px"><span></span></div>` : ''}
+    </div>
+    ${!ps.length ? `<p class="o-nota o-cal-pista" data-e>${puedoEditar() ? 'Toca una hora para añadir una parada.' : 'Todavía no hay nada planeado.'}</p>` : ''}
+  </div>`;
+}
 function filaParada(x, i, ps, ah, v) {
-  const foto = fotoParada(x), tp = TIPOS[x.tipo] || TIPOS.visita;
+  const foto = fotoParada(x), tp = tipoDe(x.tipo);
   const es = i === ah.idx, pasado = x.hecho;
   const sig = ps[i + 1], tr = sig ? trayecto(x.lugar, sig.lugar) : null;
   const ent = tr ? `<div class="o-tray" data-e><span class="o-tray-l"></span><span class="o-tray-c">${ic(tr.modo === 'pie' ? 'walk' : tr.modo === 'tren' ? 'train' : 'bus', 14, 1.8)}${tr.modo === 'pie' ? 'A pie' : tr.modo === 'tren' ? 'En tren' : 'En transporte'} · ${duracion(tr.min)}</span></div>` : (sig ? '<div class="o-tray o-tray-v" data-e><span class="o-tray-l"></span></div>' : '');
@@ -193,7 +241,7 @@ Object.assign(PANT.viaje.acciones, {
     const atras = p.dia < viejo;
     const v = dato('viajes', p.id), vt = $('.o-vt', el);
     const html = TABS.plan.render(v, p);
-    const lt = $('.o-linea-t', el), dc = $('.o-dcab', el), pb = $('.o-plan-b', el), pe = $('.o-peli', el);
+    const lt = $('.o-linea-t,.o-cal', el), dc = $('.o-dcab', el), pb = $('.o-plan-b', el), pe = $('.o-peli', el);
     await Promise.all([
       animar(lt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${atras ? 18 : -18}px)` }], { duration: 170, easing: CURVA.salir }),
       animar(dc, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 150, easing: CURVA.salir }),
@@ -205,11 +253,11 @@ Object.assign(PANT.viaje.acciones, {
     TABS.plan.alPintar(vt, v, p, false, pa);
     cont.scrollLeft = sl; el.scrollTop = st;
     animar($('.o-dcab', vt), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 380 });
-    await animar($('.o-linea-t', vt), [{ opacity: 0, transform: `translateX(${atras ? -18 : 18}px)` }, { opacity: 1, transform: 'none' }], { duration: 380 });
+    await animar($('.o-linea-t,.o-cal', vt), [{ opacity: 0, transform: `translateX(${atras ? -18 : 18}px)` }, { opacity: 1, transform: 'none' }], { duration: 380 });
     pa.cambiando = false;
   },
   parada: (b, e, p) => {
-    const f = $('.o-par-f,.o-ahora-f,.o-carr-f', b) || b;
+    const f = $('.o-par-f,.o-ahora-f,.o-carr-f,.o-cal-f', b) || b;
     const x = dato('paradas', b.dataset.id), u = fotoParada(x);
     Nav.ir('parada', { id: b.dataset.id }, u ? { circulo: { x: e.clientX || innerWidth / 2, y: e.clientY || innerHeight / 2 }, vuela: { desde: f, hacia: '.o-pd-foto', imagen: u } } : {});
   },
@@ -222,6 +270,30 @@ Object.assign(PANT.viaje.acciones, {
   },
   llegar: (b) => { const x = dato('paradas', b.dataset.id); abrirRuta(x); },
   nuevaParada: (b, e, p) => editarParada(null, { viaje: p.id, dia: p.dia }),
+  calHueco: (b, e, p) => {
+    if (e.target.closest('.o-cal-ev')) return;
+    const r = b.getBoundingClientRect(), m = +b.dataset.ini + Math.floor((e.clientY - r.top) / CAL_H * 2) * 30;
+    if (m < 0 || m >= 24 * 60) return;
+    editarParada(null, { viaje: p.id, dia: p.dia, hora: String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0') });
+  },
+  vista: async (b, e, p, pa) => {
+    const nv = b.dataset.v; if (nv === p.vista || pa.cambiando) return;
+    pa.cambiando = true;
+    p.vista = nv; S.pref.vistaPlan = nv; guardarPref();
+    const cont = b.parentNode; $$('.o-vista-b', cont).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(cont, b);
+    const el = pa.el, vt = $('.o-vt', el), v = dato('viajes', p.id);
+    const html = TABS.plan.render(v, p);
+    await Promise.all([animar($('.o-linea-t,.o-cal', el), [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.98)' }], { duration: 160, easing: CURVA.salir }), Fotos.varias(urlsDe(html), 300)]);
+    const st = el.scrollTop, sl = $('.o-dias', el).scrollLeft;
+    morph(vt, html);
+    TABS.plan.alPintar(vt, v, p, false, pa);
+    $('.o-dias', el).scrollLeft = sl; el.scrollTop = st;
+    const nuevo_ = $('.o-linea-t,.o-cal', vt);
+    animar(nuevo_, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: CURVA.entrar });
+    $$('.o-cal-ev,.o-par', nuevo_).slice(0, 10).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 60 + i * 40, easing: CURVA.entrar }));
+    await espera(420);
+    pa.cambiando = false;
+  },
   deIdea: (b, e, p) => elegirIdea(p.id, p.dia),
   peli: (b, e, p) => Nav.ir('pelicula', { id: p.id, dia: p.dia }, { circulo: { x: e.clientX || innerWidth / 2, y: e.clientY || innerHeight / 2 } })
 });

@@ -1,7 +1,7 @@
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -267,3 +267,9 @@ function copiar(txt) {
 }
 function copiarViejo(txt) { const t = document.createElement('textarea'); t.value = txt; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { } t.remove(); return ok; }
 function vibrar(ms) { try { navigator.vibrate && navigator.vibrate(ms || 8); } catch (e) { } }
+/* Mantener pulsado no selecciona texto ni saca la lupa de Safari (salvo en campos para escribir) */
+(function () {
+  const campo = e => { const t = e.target && e.target.nodeType === 3 ? e.target.parentNode : e.target; return !!(t && t.closest && t.closest('input,textarea,[contenteditable]')); };
+  document.addEventListener('selectstart', e => { if (!campo(e)) e.preventDefault(); });
+  document.addEventListener('contextmenu', e => { if (!campo(e) && !(e.target.closest && e.target.closest('a[href]'))) e.preventDefault(); });
+})();

@@ -491,7 +491,7 @@ function enlaceInfo_(url) {
   try {
     if (/tiktok\.com/i.test(url)) {
       const r = UrlFetchApp.fetch('https://www.tiktok.com/oembed?url=' + encodeURIComponent(url), { muteHttpExceptions: true });
-      if (r.getResponseCode() === 200) { const j = JSON.parse(r.getContentText()); out.titulo = j.title; out.autor = j.author_unique_id ? '@' + j.author_unique_id : j.author_name; out.img = j.thumbnail_url; }
+      if (r.getResponseCode() === 200) { const j = JSON.parse(r.getContentText()); out.titulo = j.title; out.autor = j.author_unique_id ? '@' + j.author_unique_id : j.author_name; out.img = j.thumbnail_url; out.ttid = j.embed_product_id || ((j.html || '').match(/data-video-id="(\d+)"/) || [])[1] || ''; }
     }
     if (!out.titulo || !out.img) {
       const r = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; facebookexternalhit/1.1)', 'Accept-Language': 'es-ES,es;q=0.9' } });

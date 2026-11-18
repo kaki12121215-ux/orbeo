@@ -44,3 +44,72 @@
 .o-peli-fs span{width:42px;height:56px}
 .o-peli-fs span+span{margin-left:-24px}
 @media (min-width:960px){.o-tabs{bottom:24px}}
+
+/* ---------- 1.0.3 ---------- */
+/* Nada se puede estirar por arriba: ni hueco sobre la foto ni zoom */
+.o-pant{overscroll-behavior-y:none}
+/* Mantener pulsado no saca la lupa ni selecciona texto (solo en campos) */
+*{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable],[contenteditable] *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+/* Fecha de la portada: en cristal oscuro, se lee sobre cualquier foto */
+.o-vcab-fecha .o-chip{height:32px;padding:0 12px;font-size:12.5px;font-weight:600;letter-spacing:.2px;color:#fff;background:rgba(16,14,12,.38);border-color:rgba(255,255,255,.28);gap:6px}
+.o-vcab-n{text-shadow:0 2px 30px rgba(0,0,0,.28)}
+.o-vcab-velo{background:linear-gradient(rgba(0,0,0,.42),transparent 26%,transparent 38%,rgba(10,9,8,.55) 62%,rgba(10,9,8,.82))}
+/* Interruptor itinerario / calendario */
+.o-dcab{position:relative}
+.o-vista{position:relative;display:flex;margin-left:auto;align-self:center;background:var(--sup);border-radius:999px;padding:3px;isolation:isolate}
+.o-vista .o-pild{top:3px;bottom:3px;background:var(--capa);box-shadow:0 2px 10px -3px rgba(0,0,0,.2)}
+html[data-tema="oscuro"] .o-vista .o-pild{background:var(--sup2)}
+.o-vista-b{width:42px;height:36px;border-radius:999px;display:grid;place-items:center;color:var(--gris);transition:color .3s,scale .34s var(--muelle)}
+.o-vista-b.o-on{color:var(--tinta)}
+/* Calendario del día */
+.o-cal{margin:4px 0 10px}
+.o-cal-sin{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:16px}
+.o-cal-sin .o-cap{width:100%;margin-bottom:2px}
+.o-cal-chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 12px;border-radius:999px;background:color-mix(in srgb,var(--cc) 14%,var(--capa));font-size:13.5px;font-weight:500;max-width:100%}
+.o-cal-pt{width:8px;height:8px;border-radius:50%;background:var(--cc);flex:none}
+.o-cal-g{position:relative;margin-left:2px;cursor:pointer}
+.o-cal-h{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--linea);pointer-events:none}
+.o-cal-h span{position:absolute;left:0;top:-8px;font-size:11.5px;font-weight:500;color:var(--gris);background:var(--fondo);padding-right:8px;line-height:16px}
+.o-cal-evs{position:absolute;top:0;bottom:0;left:52px;right:0}
+.o-cal-ev{position:absolute;display:flex;gap:9px;align-items:flex-start;text-align:left;padding:8px 10px 8px 12px;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--cc) 16%,var(--capa));color:var(--tinta);box-shadow:inset 3px 0 0 var(--cc),0 6px 16px -12px rgba(40,30,20,.5)}
+html[data-tema="oscuro"] .o-cal-ev{background:color-mix(in srgb,var(--cc) 30%,var(--capa))}
+.o-cal-ev.o-hecho{opacity:.55}
+.o-cal-ev.o-hecho .o-cal-n{text-decoration:line-through;text-decoration-color:var(--gris)}
+.o-cal-ev.o-corto{align-items:center;padding-top:0;padding-bottom:0}
+.o-cal-f{width:34px;height:34px;border-radius:10px;background:var(--sup) center/cover;flex:none}
+.o-cal-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.o-cal-n{font-size:14px;font-weight:550;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.o-cal-ev.o-corto .o-cal-tx{flex-direction:row;align-items:baseline;gap:8px}
+.o-cal-ev.o-corto .o-cal-n{-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;display:block}
+.o-cal-s{font-size:12px;color:color-mix(in srgb,var(--cc) 55%,var(--tinta2));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o-cal-ya{position:absolute;left:46px;right:0;height:0;border-top:2px solid var(--mal);pointer-events:none;z-index:2}
+.o-cal-ya span{position:absolute;left:-5px;top:-6px;width:10px;height:10px;border-radius:50%;background:var(--mal)}
+.o-cal-pista{text-align:center;margin-top:10px}
+/* Categorías */
+.o-cats{display:flex;flex-wrap:wrap;gap:8px}
+.o-cat{height:40px;padding:0 14px 0 12px;border-radius:999px;background:var(--sup);display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:500;color:var(--tinta2);transition:background-color .3s,color .3s,scale .34s var(--muelle)}
+.o-cat.o-on{background:var(--pil);color:var(--pil-t)}
+.o-cat-mas{background:transparent;border:1px dashed var(--linea2);color:var(--gris)}
+.o-opc{font-weight:450;color:var(--gris2);margin-left:4px}
+/* Buscador de ubicación (aparte del título) */
+.o-lbus{display:flex;align-items:center;gap:10px;height:54px;padding:0 16px;border-radius:18px;border:1px dashed var(--linea2);color:var(--gris)}
+.o-lbus-in{flex:1;height:100%;border:0;background:none;outline:none;font:inherit;font-size:15.5px;color:var(--tinta)}
+.o-lbus-in::placeholder{color:var(--gris)}
+#p-lugar .o-lugar-sel{margin-top:0}
+/* Ideas: categoría, nota y vídeo de TikTok */
+.o-idea-cat{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;height:24px;padding:0 9px 0 7px;border-radius:999px;font-size:11.5px;font-weight:600;color:color-mix(in srgb,var(--cc) 70%,var(--tinta));background:color-mix(in srgb,var(--cc) 15%,transparent)}
+.o-idea-nota{font-size:13px;color:var(--tinta2);line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;padding-left:8px;border-left:2px solid var(--linea2)}
+.o-tt{border:0;display:block;width:100%;height:100%;background:#000}
+.o-tt-mini{position:absolute;inset:0;pointer-events:none}
+.o-ih-tt{height:min(70vh,560px);background:#000;overflow:hidden}
+.o-ih .o-idea-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--gris2)}
+.o-ih.o-carga{background:linear-gradient(100deg,var(--sup) 30%,var(--sup2) 50%,var(--sup) 70%);background-size:300% 100%;animation:o-brillo 1.3s linear infinite}
+/* Preguntas con varias salidas */
+.o-conf-v{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+/* Borradores en el inicio */
+.o-bor{padding:0}
+.o-bor-a{display:flex;align-items:center;gap:14px;flex:1;min-width:0;padding:10px 0;text-align:left}
+.o-bor .o-filav-f{border:1px dashed var(--linea2);color:var(--gris)}
+.o-bor-x{width:40px;height:40px;color:var(--gris)}
+.o-vista{position:absolute;right:0;top:2px;margin:0}

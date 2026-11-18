@@ -74,13 +74,29 @@ const Lugar = {
   async foto(s) {
     if (s.fotoG) return s.fotoG;
     if (s.pid && claveMaps()) { const c = await this.completar(Object.assign({}, s, { lat: null })); if (c.fotoG) return c.fotoG; }
+    return this.fotoWiki(s.n);
+  },
+  /* Wikipedia: la foto principal del artículo; si es un mapa o una bandera (países), la primera foto de verdad */
+  async fotoWiki(n) {
+    const MALA = /map|mapa|flag|bandera|escudo|coat.of.arms|locator|location|logo|seal|emblem|blas[oó]n|orthographic|relief|topogr|sello|stamp|banknote|billete|diagram|chart|gr[aá]fico|signature|firma/i;
+    const nombre = String(n || '').trim(); if (!nombre) return '';
     for (const idioma of ['es', 'en']) {
       try {
-        const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(String(s.n).replace(/ /g, '_'))}`);
+        const t = encodeURIComponent(nombre.replace(/ /g, '_'));
+        const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${t}?redirect=true`);
         if (!r.ok) continue;
         const j = await r.json();
         const u = (j.originalimage && j.originalimage.width >= 700 ? j.originalimage.source : null) || (j.thumbnail && j.thumbnail.source && j.thumbnail.source.replace(/\/\d+px-/, '/1280px-'));
-        if (u && !/\.svg/i.test(u)) return u;
+        if (u && !/\.svg/i.test(u) && !MALA.test(decodeURIComponent(u.split('/').pop()))) return u;
+        const r2 = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent((j.titles && j.titles.canonical) || nombre.replace(/ /g, '_'))}`);
+        if (!r2.ok) continue;
+        const items = ((await r2.json()).items || []).filter(i => i.type === 'image' && /\.jpe?g$/i.test(i.title || '') && !MALA.test(i.title || ''));
+        for (const it of items.slice(0, 4)) {
+          const r3 = await fetch(`https://${idioma}.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(it.title)}&prop=imageinfo&iiprop=url|size&iiurlwidth=1600&format=json&origin=*`);
+          const pg = Object.values(((await r3.json()).query || {}).pages || {})[0];
+          const ii = pg && pg.imageinfo && pg.imageinfo[0];
+          if (ii && ii.width >= 900 && ii.width >= ii.height * .9) return ii.thumburl || ii.url;
+        }
       } catch (e) { }
     }
     return '';
@@ -290,7 +306,7 @@ TABS.mapa = {
       </div>
       <div class="o-vmapa-zoom"><button class="o-bt o-vid t t-s" data-a="zmas">${ic('plus', 18)}</button><button class="o-bt o-vid t t-s" data-a="zmenos"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12h14"/></svg></button></div>
       <div class="o-carr">${ps.length ? ps.map((x, i) => {
-        const f = fotoParada(x), tp = TIPOS[x.tipo] || TIPOS.visita;
+        const f = fotoParada(x), tp = tipoDe(x.tipo);
         return `<button class="o-carr-c o-vid t t-g" data-a="mfoco" data-id="${x.id}" data-e="der"><span class="o-carr-f" style="${f ? `background-image:url('${f}')` : ''}">${f ? '' : ic(tp.ic, 22, 1.5)}</span><span class="o-carr-t"><span class="o-cap">${p.mdia === 'todos' ? esc(fechaCorta(x.dia)) + ' · ' : ''}${esc(x.hora || 'Sin hora')}</span><span class="o-carr-n">${esc(x.nombre)}</span><span class="o-nota o-1l">${esc(x.lugar && x.lugar.dir ? x.lugar.dir : tp.t)}</span></span></button>`;
       }).join('') : `<div class="o-carr-c o-vid o-carr-vacio" data-e="der"><span class="o-nota">No hay paradas con sitio en el mapa este día.</span></div>`}</div>
     </div>`;

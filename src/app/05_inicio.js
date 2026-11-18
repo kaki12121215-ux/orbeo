@@ -148,6 +148,8 @@ PANT.inicio = {
       <div class="o-ini-lado">
       ${resto.length ? `<div class="o-sec" data-e><span class="o-cap">Próximos</span><span class="o-nota tn">${resto.length}</span></div>
         <div class="o-filas">${resto.map(filaViaje).join('')}</div>` : ''}
+      ${borradores().length ? `<div class="o-sec" data-e><span class="o-cap">Borradores</span><span class="o-nota tn">${borradores().length}</span></div>
+        <div class="o-filas">${borradores().map(filaBorrador).join('')}</div>` : ''}
       ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
         <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
       </div></div>
@@ -161,9 +163,27 @@ PANT.inicio = {
   acciones: {
     abrir: (b, e) => abrirViaje(b.dataset.id, b, e),
     nuevo: () => editarViaje(null),
+    borrador: (b) => editarViaje(null, { borrador: b.dataset.id }),
+    quitarBorrador: async (b, e) => {
+      e.stopPropagation();
+      const id = b.dataset.id; borrar('borradores', id);
+      aviso('Borrador borrado', { accion: { t: 'Deshacer', f: () => poner('borradores', id, { _b: 0 }) } });
+    },
     ajustes: () => Nav.ir('ajustes')
   }
 };
+function borradores() { return lista('borradores', b => b.por === yo() || b._por === yo()).sort((a, b) => (b.cuando || 0) - (a.cuando || 0)); }
+function filaBorrador(b) {
+  const d = b.datos || {}, url = d.portada ? urlMedio(d.portada) : '';
+  const cuando = b.cuando ? new Date(b.cuando) : null;
+  return `<div class="o-filav o-bor" data-id="${b.id}" data-e>
+    <button class="o-bor-a t" data-a="borrador" data-id="${b.id}">
+      <span class="o-filav-f" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : ic('edit', 18)}</span>
+      <span class="o-filav-t"><span class="o-t3">${esc(d.nombre || d.ciudad || 'Viaje sin nombre')}</span><span class="o-nota">Sin terminar${d.ciudad && d.nombre ? ' · ' + esc(d.ciudad) : ''}${cuando ? ' · ' + cuando.getDate() + ' ' + MESES[cuando.getMonth()].slice(0, 3) : ''}</span></span>
+    </button>
+    <button class="o-bt t t-s o-bor-x" data-a="quitarBorrador" data-id="${b.id}" aria-label="Borrar borrador">${ic('close', 16)}</button>
+  </div>`;
+}
 function vacioInicio() {
   return `<div class="o-vacio-ini" data-e="heroe">
     <div class="o-vacio-orbe">${logo(120)}</div>
@@ -213,13 +233,16 @@ function abrirViaje(id, b, e) {
   const foto = b && $('.o-heroe-foto,.o-filav-f,.o-rec-f', b);
   const v = dato('viajes', id);
   const x = e && e.clientX != null ? e.clientX : innerWidth / 2, y = e && e.clientY != null ? e.clientY : innerHeight / 2;
-  Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x, y }, vuela: foto && portadaUrl(v) ? { desde: foto, hacia: '.o-vcab-foto', imagen: portadaUrl(v) } : null });
+  Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x, y }, vuela: foto && portadaUrl(v) ? { desde: foto, hacia: '.o-vcab-foto', caja: '.o-vcab', imagen: portadaUrl(v) } : null });
 }
 
 /* ---------- Crear o editar un viaje (hoja) */
-function editarViaje(v) {
+function editarViaje(v, o) {
+  o = o || {};
   const nuevoV = !v;
-  const f = v ? JSON.parse(JSON.stringify(v)) : { nombre: '', ciudad: '', lugar: '', desde: sumaDias(enZona(TZ_CASA()).dia, 30), hasta: sumaDias(enZona(TZ_CASA()).dia, 36), tz: '', moneda: 'EUR', quienes: lista('personas').map(p => p.id) };
+  const bor = o.borrador ? dato('borradores', o.borrador) : null;
+  let hecho = false, fotoT = null;
+  const f = v ? JSON.parse(JSON.stringify(v)) : bor ? JSON.parse(JSON.stringify(bor.datos || {})) : { nombre: '', ciudad: '', lugar: '', desde: sumaDias(enZona(TZ_CASA()).dia, 30), hasta: sumaDias(enZona(TZ_CASA()).dia, 36), tz: '', moneda: 'EUR', quienes: lista('personas').map(p => p.id) };
   let sugT = null;
   const vistaPortada = () => {
     const u = f.portada ? urlMedio(f.portada) : '';
@@ -246,7 +269,27 @@ function editarViaje(v) {
       </div>`,
     alAbrir: (h) => {
       const i = $('#f-vd', h);
-      i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintarSugs(h, await Lugar.buscar(i.value, { ciudades: true })), 260); });
+      i.addEventListener('input', () => {
+        clearTimeout(sugT); sugT = setTimeout(async () => pintarSugs(h, await Lugar.buscar(i.value, { ciudades: true })), 260);
+        /* Aunque no elijas ninguna sugerencia, sale la foto de lo que has escrito */
+        clearTimeout(fotoT);
+        const q = i.value.trim();
+        if (q.length >= 3 && (!f.portada || f.portadaAuto)) fotoT = setTimeout(() => PANT_portadaLugar(f, { n: q }, () => { if (i.value.trim() !== q) return; f.portadaAuto = true; ponerPortada(h); }), 900);
+      });
+    },
+    antesCerrar: async () => {
+      if (hecho || !nuevoV) return true;
+      leer(c.hoja);
+      if (!(f.nombre || f.ciudad || f.lugar || f.portada)) { if (bor) borrar('borradores', bor.id); return true; }
+      const r = await Capa.preguntar({ titulo: bor ? '¿Guardas los cambios del borrador?' : '¿Guardar como borrador?', texto: 'Lo tendrás en el inicio para terminarlo cuando quieras.', ops: [{ k: 'guardar', t: 'Guardar borrador', ic: 'download' }, { k: 'borrar', t: bor ? 'Borrar el borrador' : 'Borrar', clase: 'o-sec o-pmal-t', ic: 'trash' }, { k: 'seguir', t: 'Seguir editando', clase: 'o-sec' }] });
+      if (r === 'guardar') {
+        const datos = JSON.parse(JSON.stringify(f));
+        if (bor) poner('borradores', bor.id, { datos, cuando: Date.now() }); else nuevo('borradores', { datos, cuando: Date.now() });
+        aviso('Guardado en borradores', { ic: 'check' });
+        return true;
+      }
+      if (r === 'borrar') { if (bor) { borrar('borradores', bor.id); aviso('Borrador borrado'); } return true; }
+      return false;
     },
     acciones: {
       sug: async (b) => {
@@ -257,9 +300,15 @@ function editarViaje(v) {
         f.tz = (cerca && cerca.tz) || f.tz; f.moneda = monedaDe(f.pais || (cerca && cerca.pais));
         if (!$('#f-vn', h).value) $('#f-vn', h).value = s.n;
         $('#v-zona', h).innerHTML = zonaTxt(f.tz); animar($('#v-zona', h), [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
-        if (!f.portada) PANT_portadaLugar(f, s, () => { $('.o-port-prev', h).outerHTML = vistaPortada(); animar($('.o-port-prev', h), [{ opacity: 0, transform: 'scale(1.06)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: CURVA.heroe }); });
+        clearTimeout(fotoT);
+        if (!f.portada || f.portadaAuto) PANT_portadaLugar(f, s, () => { f.portadaAuto = true; ponerPortada(h); });
       },
-      pfoto: () => { if (!f.ciudad) return aviso('Elige primero el destino.'); f.portada = null; PANT_portadaLugar(f, { n: f.ciudad, lat: f.lat, lng: f.lng, pid: f.pid }, () => { $('.o-port-prev', c.hoja).outerHTML = vistaPortada(); animar($('.o-port-prev', c.hoja), [{ opacity: 0 }, { opacity: 1 }], { duration: 500 }); }); },
+      pfoto: (b) => {
+        const n = f.ciudad || $('#f-vd', c.hoja).value.trim() || $('#f-vn', c.hoja).value.trim();
+        if (!n) return aviso('Escribe primero el destino.');
+        cargando(b, true);
+        PANT_portadaLugar(f, { n, lat: f.lat, lng: f.lng, pid: f.pid }, () => { f.portadaAuto = true; ponerPortada(c.hoja); }).then(() => { cargando(b, false); if (!f.portada) aviso('No he encontrado foto de «' + n + '». Prueba con «Crear con IA» o «Mi foto».'); });
+      },
       pia: async (b) => {
         if (!Sync.activo()) return aviso('Crear portadas con IA necesita el script con tu clave de Gemini.');
         cargando(b, true);
@@ -268,7 +317,7 @@ function editarViaje(v) {
           const bin = atob(r.data), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
           const blob = new Blob([u], { type: r.tipo || 'image/png' });
           const id = 'm' + uid(); await DB.set('med:' + id, blob); S.imgs[id] = URL.createObjectURL(blob);
-          f.portada = { id, fid: r.fid };
+          f.portada = { id, fid: r.fid }; f.portadaAuto = false;
           $('.o-port-prev', c.hoja).outerHTML = vistaPortada();
           Anim.circulo($('.o-port-prev', c.hoja), 180, 110, 900);
         } catch (e) { aviso(e.message); } finally { cargando(b, false); }
@@ -277,7 +326,7 @@ function editarViaje(v) {
         const [file] = await elegirArchivos('image/*'); if (!file) return;
         const blob = await reducir(file, 1800, .86);
         const id = await Subidas.guardar(blob, 'portada.jpg');
-        f.portada = { id };
+        f.portada = { id }; f.portadaAuto = false;
         $('.o-port-prev', c.hoja).outerHTML = vistaPortada();
         animar($('.o-port-prev', c.hoja), [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 600, easing: CURVA.muelle });
       },
@@ -287,22 +336,34 @@ function editarViaje(v) {
         borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje borrado');
       },
       guardar: () => {
-        const h = c.hoja, val = id => $('#f-' + id, h).value.trim();
-        f.nombre = val('vn'); f.lugar = val('vl'); f.desde = val('vde'); f.hasta = val('vha');
-        if (!f.ciudad) f.ciudad = val('vd');
+        const h = c.hoja;
+        leer(h);
         if (!f.nombre) { Anim.no($('#f-vn', h).parentNode); return error(h, 'Ponle un nombre al viaje.'); }
         if (!f.desde) { Anim.no($('#f-vde', h).parentNode); return error(h, 'Falta la fecha de salida.'); }
         if (!f.hasta || f.hasta < f.desde) f.hasta = f.desde;
         if (!f.tz) { const cc = buscarCiudades(f.ciudad)[0]; f.tz = cc ? cc.tz : TZ_CASA(); if (cc) { f.lat = cc.lat; f.lng = cc.lng; f.pais = cc.pais; f.moneda = monedaDe(cc.pais); } }
         const campos = { nombre: f.nombre, lugar: f.lugar, ciudad: f.ciudad, desde: f.desde, hasta: f.hasta, tz: f.tz, moneda: f.moneda || 'EUR', pais: f.pais || '', lat: f.lat ?? null, lng: f.lng ?? null, quienes: f.quienes, portada: f.portada || null };
         let id = v && v.id;
-        if (nuevoV) { id = nuevo('viajes', campos); actividad(id, 'ha creado el viaje'); }
+        if (nuevoV) { id = nuevo('viajes', campos); actividad(id, 'ha creado el viaje'); if (bor) borrar('borradores', bor.id); }
         else poner('viajes', id, campos);
-        c.cerrar();
+        /* Si todavía no hay portada, se busca la foto del destino después */
+        if (!campos.portada && f.ciudad) { const vid = id; Lugar.foto({ n: f.ciudad, lat: f.lat, lng: f.lng, pid: f.pid }).then(u => { if (u && dato('viajes', vid) && !dato('viajes', vid).portada) poner('viajes', vid, { portada: { url: u } }); }).catch(() => { }); }
+        hecho = true;
+        c.cerrar(true);
         if (nuevoV) setTimeout(() => Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x: innerWidth / 2, y: innerHeight * .4 } }), 260);
       }
     }
   });
+  function leer(h) {
+    const val = id => ($('#f-' + id, h) || {}).value ? $('#f-' + id, h).value.trim() : '';
+    f.nombre = val('vn'); f.lugar = val('vl'); f.desde = val('vde') || f.desde; f.hasta = val('vha') || f.hasta;
+    const d = val('vd'); if (d !== (f.ciudad || '')) { f.ciudad = d; }
+  }
+  function ponerPortada(h) {
+    const p = $('.o-port-prev', h); if (!p) return;
+    p.outerHTML = vistaPortada();
+    animar($('.o-port-prev', h), [{ opacity: 0, transform: 'scale(1.06)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: CURVA.heroe });
+  }
   function pintarSugs(h, ls) {
     const box = $('#v-sugs', h);
     box.innerHTML = ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota">${esc(s.sub || '')}</span></span></button>`).join('');
@@ -318,6 +379,6 @@ function zonaTxt(tz) {
 async function PANT_portadaLugar(f, s, listo) {
   try {
     const u = await Lugar.foto(s);
-    if (u) { f.portada = { url: u }; listo(); }
+    if (u && !(f.portada && f.portada.url === u)) { f.portada = { url: u }; listo(); }
   } catch (e) { anotar('portada', e); }
 }
