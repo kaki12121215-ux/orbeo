@@ -4,8 +4,7 @@ const VERSION = 'orbeo-__VERSION__';
 const ARCHIVOS = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest',
   'fonts/inter-latin.woff2', 'fonts/inter-latin-ext.woff2',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/favicon-32.png',
-  'img/demo/viajera.jpg', 'img/demo/kioto.jpg', 'img/demo/inari.jpg', 'img/demo/templo.jpg', 'img/demo/nishiki.jpg',
-  'img/demo/gion.jpg', 'img/demo/ryokan.jpg', 'img/demo/lisboa.jpg', 'img/demo/islandia.jpg', 'img/demo/nyc.jpg'];
+  'img/demo/viajera.jpg'];
 self.addEventListener('install', e => e.waitUntil(caches.open(VERSION)
   .then(c => Promise.all(ARCHIVOS.map(a => fetch(a, { cache: 'no-cache' }).then(r => r.ok ? c.put(a, r) : null).catch(() => null))))
   .then(() => self.skipWaiting())));

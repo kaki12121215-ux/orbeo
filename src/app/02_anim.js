@@ -17,7 +17,15 @@ function animar(el, kf, o) {
   }
   delete o.siempre;
   const a = el.animate(kf, o);
-  return a.finished.then(() => { try { if (el.isConnected) a.commitStyles(); a.cancel(); } catch (e) { } }, () => { });
+  /* Al terminar se escribe a mano el último fotograma y se cancela. No se usa commitStyles: en Safari del iPhone
+     a veces fija el primer fotograma y deja palabras, campos y letras invisibles. */
+  const fin = Object.assign({}, kf[kf.length - 1] || {});
+  delete fin.offset; delete fin.easing; delete fin.composite;
+  const fija = o.fill === 'both' || o.fill === 'forwards';
+  return a.finished.then(() => {
+    try { if (fija) for (const k in fin) el.style[k] = typeof fin[k] === 'number' ? String(fin[k]) : fin[k]; } catch (e) { }
+    try { a.cancel(); } catch (e) { }
+  }, () => { });
 }
 const Anim = {
   /* Entrada escalonada de los bloques de una pantalla: [data-e] = sube | pop | heroe | izq | der | foto */

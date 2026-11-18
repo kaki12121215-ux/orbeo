@@ -15,14 +15,14 @@ PANT.bienvenida = {
         <div class="o-bien-b">
           <button class="o-pil o-blanca t t-g" data-a="crear" data-e>Crear nuestro espacio</button>
           <button class="o-pil o-vido t t-g" data-a="unirse" data-e>Tengo una invitación</button>
-          <button class="o-enlace o-claro t" data-a="demo" data-e>Ver un viaje de ejemplo</button>
+          <button class="o-pil o-vido o-demo-b t" data-a="demo" data-e>${ic('play', 16)}Ver ejemplo de prueba</button>
         </div>
       </div></div>`;
   },
   acciones: {
     crear: () => Nav.ir('conectar', { modo: 'crear' }),
     unirse: () => Nav.ir('conectar', { modo: 'unirse' }),
-    demo: async () => { S.cfg = { demo: true, persona: 'p1', rol: 'admin' }; await DB.set('cfg', S.cfg); crearDemo(); guardarLocal(true); Nav.raiz('inicio'); aviso('Es un viaje de ejemplo. Lo que cambies se queda en este móvil.'); }
+    demo: async () => { S.cfg = { demo: true, persona: 'p1', rol: 'admin' }; await DB.set('cfg', S.cfg); crearDemo(); guardarLocal(true); Nav.raiz('inicio'); aviso('Ejemplo de prueba: tres viajes inventados. Lo que cambies se queda en este móvil.'); }
   }
 };
 

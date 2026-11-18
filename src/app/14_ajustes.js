@@ -21,7 +21,7 @@ PANT.ajustes = {
       <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button></div>
       <h1 class="o-t1" data-e="titulo" style="margin-top:14px">Ajustes</h1>
       ${me ? `<div class="o-yo" data-e>${avatar(me, 64)}<div><div class="o-t2">${esc(me.nombre)}</div><div class="o-nota">${esc(ROLES[me.rol] || 'Editor')} · ${esc((dato('espacio', 'espacio') || {}).nombre || '')}</div></div><button class="o-bt o-borde t t-s" data-a="editarYo">${ic('edit', 19)}</button></div>` : ''}
-      ${demo ? `<div class="o-demo" data-e><div class="o-t3">Es el viaje de ejemplo</div><p class="o-nota">Lo que cambies se queda en este móvil. Cuando quieras, conecta vuestro espacio de verdad.</p><button class="o-pil o-peq t" data-a="salirDemo">Conectar nuestro espacio</button></div>` : ''}
+      ${demo ? `<div class="o-demo" data-e><div class="o-t3">Es el ejemplo de prueba</div><p class="o-nota">Tres viajes inventados. Lo que cambies se queda en este móvil. Cuando quieras, conecta vuestro espacio de verdad.</p><button class="o-pil o-peq t" data-a="salirDemo">Conectar nuestro espacio</button></div>` : ''}
       <div class="o-grupo-a" data-e><div class="o-cap">Aspecto</div>
         <div class="o-seg"><span class="o-pild"></span>${[['auto', 'Automático', 'auto'], ['claro', 'Porcelana', 'sun'], ['oscuro', 'Grafito', 'moon']].map(([k, n, i]) => `<button class="o-seg-b t${tema === k ? ' o-on' : ''}" data-a="tema" data-k="${k}">${ic(i, 17)}<span>${n}</span></button>`).join('')}</div>
         <p class="o-nota" style="margin-top:8px">Automático cambia solo con el modo del iPhone.</p></div>

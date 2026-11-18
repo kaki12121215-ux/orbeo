@@ -15,3 +15,7 @@
 .o-quien-p.o-on span:last-child{color:var(--tinta)}
 .o-logo .o-lg-orbe{filter:drop-shadow(0 2px 3px rgba(40,30,20,.15))}
 @media (min-width:960px){.o-pviaje:has(.o-esc) .o-tabs{left:280px}}
+.o-pil.o-demo-b{background:var(--acento);color:var(--acento-t);border-color:transparent;gap:8px}
+.o-pil.o-demo-b svg{fill:currentColor;stroke:none}
+.o-av-f{color:transparent}
+.o-pil.o-sec{margin:0;align-items:center;justify-content:center}

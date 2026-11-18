@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.0 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.1 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -263,7 +263,7 @@ function duracion(min) { if (min < 60) return min + ' min'; const h = Math.floor
 const nf = (v, dec) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec == null ? 2 : dec }).format(v);
 function iniciales(n) { return String(n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); }
 const COLORES = ['#E8C9A0', '#B9C8B4', '#C7B8D8', '#E6B4A6', '#A9C4D6', '#D8CFA0', '#C9A9B5', '#9FC2B8'];
-function avatar(p, s) { p = p || {}; return `<span class="o-av" style="background:${esc(p.color || '#D8D1C8')};${s ? `width:${s}px;height:${s}px;font-size:${Math.round(s * .36)}px` : ''}">${esc(iniciales(p.nombre))}</span>`; }
+function avatar(p, s) { p = p || {}; const f = p.foto ? urlMedio(p.foto) : ''; return `<span class="o-av${f ? ' o-av-f' : ''}" style="background:${esc(p.color || '#D8D1C8')}${f ? ` url(${esc(f)}) center/cover` : ''};${s ? `width:${s}px;height:${s}px;font-size:${Math.round(s * .36)}px` : ''}">${f ? '' : esc(iniciales(p.nombre))}</span>`; }
 function nombreDe(id) { const p = dato('personas', id); return p ? p.nombre.split(' ')[0] : 'Alguien'; }
 function copiar(txt) {
   try { if (navigator.clipboard) return navigator.clipboard.writeText(txt).then(() => true, () => copiarViejo(txt)); } catch (e) { }
@@ -508,7 +508,15 @@ function animar(el, kf, o) {
   }
   delete o.siempre;
   const a = el.animate(kf, o);
-  return a.finished.then(() => { try { if (el.isConnected) a.commitStyles(); a.cancel(); } catch (e) { } }, () => { });
+  /* Al terminar se escribe a mano el último fotograma y se cancela. No se usa commitStyles: en Safari del iPhone
+     a veces fija el primer fotograma y deja palabras, campos y letras invisibles. */
+  const fin = Object.assign({}, kf[kf.length - 1] || {});
+  delete fin.offset; delete fin.easing; delete fin.composite;
+  const fija = o.fill === 'both' || o.fill === 'forwards';
+  return a.finished.then(() => {
+    try { if (fija) for (const k in fin) el.style[k] = typeof fin[k] === 'number' ? String(fin[k]) : fin[k]; } catch (e) { }
+    try { a.cancel(); } catch (e) { }
+  }, () => { });
 }
 const Anim = {
   /* Entrada escalonada de los bloques de una pantalla: [data-e] = sube | pop | heroe | izq | der | foto */
@@ -1112,54 +1120,109 @@ function portadaUrl(v) {
 }
 function personasViaje(v) { const ids = v.quienes && v.quienes.length ? v.quienes : lista('personas').map(p => p.id); return ids.map(id => dato('personas', id)).filter(Boolean); }
 
-/* ---------- viaje de ejemplo: el mismo de las maquetas, con fechas alrededor de hoy */
+/* ---------- ejemplo de prueba: tres viajes completos con fotos reales (Kioto en curso, Lisboa próximo, Islandia vivido) */
 function crearDemo() {
   S.recs = {}; S.cola = {};
   const pon = (col, id, f) => { S.recs[col] = S.recs[col] || {}; S.recs[col][id] = { f: Object.assign({ creado: Date.now() }, f), t: {}, rev: 1, por: f.por || 'p1' }; };
+  const F = n => ({ demo: n });
   pon('espacio', 'espacio', { nombre: 'Viajes con amigos' });
-  [['p1', 'Ane Ortiz', COLORES[0], 'admin'], ['p2', 'Jon Aguirre', COLORES[1], 'editor'], ['p3', 'Lucía Ferrer', COLORES[2], 'editor'], ['p4', 'Pablo Ibarra', COLORES[4], 'lector']]
-    .forEach(([id, nombre, color, rol]) => pon('personas', id, { nombre, color, rol }));
-  const hoyK = enZona('Asia/Tokyo').dia, d0 = sumaDias(hoyK, -4), D = n => sumaDias(d0, n);
+  [['p1', 'Clara Ortiz', COLORES[0], 'admin', 'per_clara'], ['p2', 'Erik Aguirre', COLORES[1], 'editor', 'per_erik'], ['p3', 'Amara Ferrer', COLORES[2], 'editor', 'per_amara'], ['p4', 'Dani Ibarra', COLORES[4], 'lector', 'per_dani']]
+    .forEach(([id, nombre, color, rol, foto]) => pon('personas', id, { nombre, color, rol, foto: F(foto) }));
   const hoyC = enZona(TZ_CASA()).dia;
-  pon('viajes', 'vjp', { nombre: 'Japón', lugar: 'Tokio, Hakone y Kioto', ciudad: 'Kioto', pais: 'JP', tz: 'Asia/Tokyo', moneda: 'JPY', lat: 35.0116, lng: 135.7681, desde: d0, hasta: D(12), portada: { demo: 'kioto' }, quienes: ['p1', 'p2', 'p3', 'p4'] });
-  pon('viajes', 'vis', { nombre: 'Islandia', lugar: 'La vuelta a la isla', ciudad: 'Reikiavik', pais: 'IS', tz: 'Atlantic/Reykjavik', moneda: 'ISK', lat: 64.1466, lng: -21.9426, desde: sumaDias(hoyC, 74), hasta: sumaDias(hoyC, 82), portada: { demo: 'islandia' }, quienes: ['p1', 'p2'] });
-  pon('viajes', 'vny', { nombre: 'Nueva York', lugar: 'Manhattan y Brooklyn', ciudad: 'Nueva York', pais: 'US', tz: 'America/New_York', moneda: 'USD', lat: 40.7128, lng: -74.006, desde: sumaDias(hoyC, 151), hasta: sumaDias(hoyC, 157), portada: { demo: 'nyc' }, quienes: ['p1', 'p3', 'p4'] });
-  pon('viajes', 'vli', { nombre: 'Lisboa', lugar: 'Alfama, Belém y Sintra', ciudad: 'Lisboa', pais: 'PT', tz: 'Europe/Lisbon', moneda: 'EUR', lat: 38.7223, lng: -9.1393, desde: sumaDias(hoyC, -128), hasta: sumaDias(hoyC, -124), portada: { demo: 'lisboa' }, quienes: ['p1', 'p2', 'p3'] });
-  const P = (id, dia, hora, nombre, tipo, lat, lng, extra) => pon('paradas', id, Object.assign({ viaje: 'vjp', dia, hora, nombre, tipo, lugar: { lat, lng } }, extra || {}));
-  P('a1', D(0), '15:40', 'Llegada a Haneda', 'vuelo', 35.5494, 139.7798, { nota: 'Vuelo IB 281 desde Madrid. Recoger los JR Pass en la terminal 3.', por: 'p2' });
-  P('a2', D(0), '18:00', 'Hotel Kumo Shinjuku', 'hotel', 35.6938, 139.7034, { nota: 'Entrada desde las 15:00. Reserva a nombre de Jon.' });
-  P('a3', D(0), '20:00', 'Cena en Omoide Yokocho', 'comida', 35.6929, 139.6995, { por: 'p3' });
-  P('b1', D(1), '09:00', 'Templo Senso-ji', 'visita', 35.7148, 139.7967, { nota: 'Ir pronto, antes de que lleguen los grupos.' });
-  P('b2', D(1), '12:30', 'Santuario Meiji', 'visita', 35.6764, 139.6993);
-  P('b3', D(1), '17:30', 'Shibuya Sky al atardecer', 'actividad', 35.6585, 139.7022, { nota: 'Entradas compradas para las 17:40.', por: 'p3' });
-  P('c1', D(2), '08:10', 'Romancecar a Hakone', 'transporte', 35.6896, 139.7006, { fin: '09:40' });
-  P('c2', D(2), '11:00', 'Owakudani', 'visita', 35.2441, 139.0198);
-  P('c3', D(2), '16:00', 'Ryokan con onsen', 'hotel', 35.249, 139.0465, { fotos: [{ demo: 'ryokan' }] });
-  P('d1', D(3), '09:30', 'Shinkansen a Kioto', 'transporte', 35.2561, 139.1555, { fin: '11:45' });
-  P('d2', D(3), '14:00', 'Bosque de bambú de Arashiyama', 'visita', 35.017, 135.6713);
-  P('e1', D(4), '07:30', 'Fushimi Inari', 'visita', 34.9671, 135.7727, { hecho: true, fotos: [{ demo: 'inari' }], nota: 'Subir hasta el mirador de Yotsutsuji: una hora y media ida y vuelta.' });
-  P('e2', D(4), '10:15', 'Kiyomizu-dera', 'visita', 34.9949, 135.785, { fotos: [{ demo: 'templo' }], nota: 'La terraza de madera es lo más bonito. Después bajar por Sannenzaka.', enlaces: ['https://www.kiyomizudera.or.jp/en/'] });
-  P('e3', D(4), '13:00', 'Mercado de Nishiki', 'comida', 35.005, 135.7649, { fotos: [{ demo: 'nishiki' }], nota: 'Probar el tamagoyaki y los pinchos de pulpo.', por: 'p3' });
-  P('e4', D(4), '16:30', 'Paseo por Gion', 'visita', 35.0037, 135.7788, { fotos: [{ demo: 'gion' }] });
-  P('e5', D(4), '19:30', 'Cena en Pontocho', 'comida', 35.005, 135.7708, { fotos: [{ demo: 'ryokan' }], nota: 'Mesa para 4 a las 19:30.', por: 'p2' });
-  P('f1', D(5), '09:00', 'Ciervos y Todai-ji en Nara', 'visita', 34.689, 135.8398);
-  const I = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vjp', titulo, fuente, url, imagen: img ? { demo: img } : null }, extra || {}));
-  I('i1', 'Los 5 mejores ramen de Kioto', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/1', 'nishiki', { autor: '@comeconjapon', por: 'p3' });
-  I('i2', 'Atardecer en la pagoda Yasaka', 'instagram', 'https://www.instagram.com/p/ejemplo/', 'gion', { autor: '@kyoto.light', por: 'p2' });
-  I('i3', 'Arabica Higashiyama', 'maps', 'https://maps.google.com/?q=34.9983,135.7807', 'templo', { lugar: { lat: 34.9983, lng: 135.7807 }, nota: 'El café de la foto famosa, junto al río.' });
-  I('i4', 'Guía de onsen en Hakone', 'web', 'https://www.ejemplo.com/hakone', 'ryokan', { nota: 'Para elegir el ryokan del día 3.' });
-  I('i5', 'Templo dorado al abrir', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/2', 'kioto', { autor: '@viajaconmapa' });
-  I('i6', 'Paseo del Filósofo', 'maps', 'https://maps.google.com/?q=35.0269,135.7948', 'viajera', { lugar: { lat: 35.0269, lng: 135.7948 } });
-  const Dd = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vjp', tipo, titulo, cuando }, extra || {}));
-  Dd('o1', 'vuelo', 'Madrid → Tokio Haneda', D(0) + ' 15:40', { codigo: 'K7Q2LM', detalles: 'IB 281 · Salida 12:05 · 4 pasajeros', por: 'p2' });
-  Dd('o2', 'hotel', 'Hotel Kumo Shinjuku', D(0) + ' 15:00', { codigo: '88213907', detalles: '2 habitaciones dobles · 2 noches' });
-  Dd('o3', 'tren', 'JR Pass · 7 días', D(1), { codigo: 'JR-4471', detalles: 'Activar en la terminal 3 de Haneda' });
-  Dd('o4', 'hotel', 'Ryokan Gora Kadan', D(2) + ' 15:00', { codigo: 'GK-2093', detalles: 'Cena kaiseki incluida' });
-  Dd('o5', 'entrada', 'Shibuya Sky', D(1) + ' 17:40', { codigo: 'SS1740-4', detalles: '4 entradas' });
-  Dd('o6', 'seguro', 'Seguro de viaje', '', { codigo: 'PL-55120', detalles: 'Asistencia 24 h: +34 900 000 000' });
-  ['inari', 'templo', 'nishiki', 'gion', 'ryokan', 'kioto', 'viajera'].forEach((f, i) => pon('medios', 'md' + i, { viaje: 'vjp', dia: D(4), tipo: 'foto', demo: f, por: i % 2 ? 'p2' : 'p1' }));
-  [['p3', 'ha añadido Cena en Pontocho', 30], ['p2', 'ha subido la reserva del vuelo', 140], ['p1', 'ha marcado Fushimi Inari como hecho', 200], ['p3', 'ha guardado una idea de TikTok', 400]]
-    .forEach(([por, txt, min], i) => pon('actividad', 'ac' + i, { viaje: 'vjp', txt, por, cuando: Date.now() - min * 60000 }));
+
+  /* ===== KIOTO · 4 días, hoy es el tercero (en hora de Kioto) ===== */
+  const k0 = sumaDias(enZona('Asia/Tokyo').dia, -2), K = n => sumaDias(k0, n);
+  pon('viajes', 'vkt', { nombre: 'Kioto', lugar: 'Templos, bambú y arces rojos', ciudad: 'Kioto', pais: 'JP', tz: 'Asia/Tokyo', moneda: 'JPY', lat: 35.0116, lng: 135.7681, desde: k0, hasta: K(3), portada: F('kio_kiyomizu'), quienes: ['p1', 'p2', 'p3', 'p4'] });
+  const PK = (id, d, hora, nombre, tipo, lat, lng, extra) => pon('paradas', id, Object.assign({ viaje: 'vkt', dia: K(d), hora, nombre, tipo, lugar: { lat, lng, dir: 'Kioto, Japón' } }, extra || {}));
+  PK('k01', 0, '14:20', 'Llegada a la estación de Kioto', 'transporte', 34.9858, 135.7588, { hecho: true, fin: '14:40', nota: 'Shinkansen Nozomi desde Tokio. Taquillas para las maletas en la planta baja.', por: 'p2' });
+  PK('k02', 0, '15:30', 'Ryokan Yoshida-sanso', 'hotel', 35.0262, 135.7905, { hecho: true, fotos: [F('kio_te')], nota: 'Entrada desde las 15:00. Cena kaiseki a las 19:00 el último día. Reserva a nombre de Erik.', por: 'p2' });
+  PK('k03', 0, '17:00', 'Paseo por Gion y Hanamikoji', 'visita', 35.0037, 135.7752, { hecho: true, fotos: [F('kio_gion')], nota: 'Con suerte se ve alguna maiko yendo a trabajar. No hacer fotos en las calles privadas.' });
+  PK('k04', 0, '19:30', 'Cena en Pontocho', 'comida', 35.0050, 135.7708, { hecho: true, fotos: [F('kio_pontocho')], nota: 'Mesa para 4 en la terraza sobre el río (kawayuka).', por: 'p3' });
+  PK('k11', 1, '07:30', 'Fushimi Inari', 'visita', 34.9671, 135.7727, { hecho: true, fotos: [F('kio_inari')], nota: 'Subir hasta el mirador de Yotsutsuji: una hora y media ida y vuelta. A primera hora casi no hay nadie.' });
+  PK('k12', 1, '11:00', 'Kinkaku-ji, el pabellón dorado', 'visita', 35.0394, 135.7292, { hecho: true, fotos: [F('kio_kinkaku')], nota: 'Entrada 500 yenes. La mejor foto, desde la primera orilla del estanque.' });
+  PK('k13', 1, '13:30', 'Ramen en Menya Inoichi', 'comida', 35.0036, 135.7647, { hecho: true, fotos: [F('kio_ramen')], nota: 'Hay que coger número en la puerta y volver a la hora que te dicen.', por: 'p3' });
+  PK('k14', 1, '16:00', 'Ceremonia del té en Camellia', 'actividad', 34.9967, 135.7805, { hecho: true, fotos: [F('kio_te')], nota: '45 minutos. Pagado: 4 plazas.', por: 'p1' });
+  PK('k21', 2, '08:00', 'Bosque de bambú de Arashiyama', 'visita', 35.0170, 135.6713, { fotos: [F('kio_bambu')], nota: 'Ir antes de las 9: después se llena. Salir por el templo Tenryu-ji.' });
+  PK('k22', 2, '10:30', 'Villa Okochi Sanso y sus arces', 'visita', 35.0168, 135.6697, { fotos: [F('kio_arces')], nota: 'La entrada incluye un té matcha con dulce al final del jardín.' });
+  PK('k23', 2, '13:00', 'Mercado de Nishiki', 'comida', 35.0050, 135.7649, { fotos: [F('kio_nishiki')], nota: 'Probar el tamagoyaki, los pinchos de pulpo y el helado de sésamo negro.', por: 'p3' });
+  PK('k24', 2, '16:00', 'Kiyomizu-dera', 'visita', 34.9949, 135.7850, { fotos: [F('kio_kiyomizu'), F('kio_kiyomizu2')], nota: 'La terraza de madera al atardecer. Después bajar por Sannenzaka y Ninenzaka.', enlaces: ['https://www.kiyomizudera.or.jp/en/'] });
+  PK('k25', 2, '18:30', 'Pagoda Yasaka al atardecer', 'visita', 34.9986, 135.7794, { fotos: [F('kio_yasaka')], nota: 'La foto clásica, desde lo alto de la cuesta de Yasaka-dori.', por: 'p2' });
+  PK('k26', 2, '20:30', 'Cena en Gion Karyo', 'comida', 35.0032, 135.7745, { nota: 'Menú degustación. Reserva confirmada para 4.', por: 'p1' });
+  PK('k31', 3, '09:00', 'Templo Kodai-ji', 'visita', 35.0006, 135.7810, { fotos: [F('kio_kiyomizu2')], nota: 'Jardín zen y el bosquecillo de bambú pequeño.' });
+  PK('k32', 3, '11:30', 'Últimas compras en Teramachi', 'actividad', 35.0068, 135.7676);
+  PK('k33', 3, '15:10', 'Haruka al aeropuerto de Kansai', 'transporte', 34.9858, 135.7588, { fin: '16:28', nota: 'Andén 30. Asientos reservados en el coche 3.', por: 'p2' });
+  const IK = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vkt', titulo, fuente, url, imagen: img ? F(img) : null }, extra || {}));
+  IK('ik1', 'Los 5 mejores ramen de Kioto', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/1', 'kio_ramen', { autor: '@comeconjapon', por: 'p3' });
+  IK('ik2', 'Pontocho cuando encienden los farolillos', 'instagram', 'https://www.instagram.com/p/ejemplo1/', 'kio_pontocho', { autor: '@kyoto.light', por: 'p2' });
+  IK('ik3', 'Arces rojos de Arashiyama', 'instagram', 'https://www.instagram.com/p/ejemplo2/', 'kio_arces', { autor: '@momiji.days' });
+  IK('ik4', 'Kinkaku-ji al abrir', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/2', 'kio_kinkaku', { autor: '@viajaconmapa' });
+  IK('ik5', 'Ceremonia del té Camellia', 'maps', 'https://maps.google.com/?q=34.9967,135.7805', 'kio_te', { lugar: { lat: 34.9967, lng: 135.7805 }, nota: 'Tiene muy buenas reseñas y la explican en inglés.', por: 'p1' });
+  IK('ik6', 'Ninenzaka sin gente', 'maps', 'https://maps.google.com/?q=34.9981,135.7808', 'kio_yasaka', { lugar: { lat: 34.9981, lng: 135.7808 } });
+  const DK = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vkt', tipo, titulo, cuando }, extra || {}));
+  DK('dk1', 'vuelo', 'Madrid → Osaka Kansai', K(0) + ' 09:05', { codigo: 'K7Q2LM', detalles: 'Vuelo con escala en Helsinki. 4 pasajeros. Maleta de 23 kg cada uno.', por: 'p2' });
+  DK('dk2', 'tren', 'Shinkansen Nozomi', K(0) + ' 12:03', { codigo: 'JR-4471', detalles: 'Coche 7, asientos 12 A a D' });
+  DK('dk3', 'hotel', 'Ryokan Yoshida-sanso', K(0) + ' 15:00', { codigo: 'YS-88213', detalles: '2 habitaciones de tatami · 3 noches · desayuno incluido', por: 'p2' });
+  DK('dk4', 'entrada', 'Ceremonia del té Camellia', K(1) + ' 16:00', { codigo: 'CAM-1604', detalles: '4 plazas' });
+  DK('dk5', 'tren', 'Haruka al aeropuerto', K(3) + ' 15:10', { codigo: 'HK-3310', detalles: 'Coche 3 · asientos reservados' });
+  DK('dk6', 'seguro', 'Seguro de viaje', '', { codigo: 'PL-55120', detalles: 'Asistencia 24 h: +34 900 000 000' });
+  ['kio_inari', 'kio_kinkaku', 'kio_ramen', 'kio_te', 'kio_bambu'].forEach((f, i) => pon('medios', 'mk' + i, { viaje: 'vkt', dia: K(1), tipo: 'foto', demo: f, por: ['p1', 'p2', 'p3', 'p4'][i % 4] }));
+  ['kio_gion', 'kio_pontocho'].forEach((f, i) => pon('medios', 'mk0' + i, { viaje: 'vkt', dia: K(0), tipo: 'foto', demo: f, por: 'p3' }));
+
+  /* ===== LISBOA · 3 días, dentro de tres semanas ===== */
+  const l0 = sumaDias(hoyC, 23), L = n => sumaDias(l0, n);
+  pon('viajes', 'vls', { nombre: 'Lisboa', lugar: 'Alfama, Belém y Sintra', ciudad: 'Lisboa', pais: 'PT', tz: 'Europe/Lisbon', moneda: 'EUR', lat: 38.7223, lng: -9.1393, desde: l0, hasta: L(2), portada: F('lis_alfama'), quienes: ['p1', 'p2', 'p3'] });
+  const PL = (id, d, hora, nombre, tipo, lat, lng, extra) => pon('paradas', id, Object.assign({ viaje: 'vls', dia: L(d), hora, nombre, tipo, lugar: { lat, lng, dir: 'Lisboa, Portugal' } }, extra || {}));
+  PL('l01', 0, '10:05', 'Llegada al aeropuerto Humberto Delgado', 'vuelo', 38.7742, -9.1342, { nota: 'Metro línea roja hasta Alameda y cambio a la verde.', por: 'p2' });
+  PL('l02', 0, '12:30', 'Hotel Bairro Alto', 'hotel', 38.7108, -9.1435, { fotos: [F('lis_chiado')], nota: 'Dejar las maletas; la habitación se entrega a las 15:00.' });
+  PL('l03', 0, '15:00', 'Tranvía 28 hasta Graça', 'transporte', 38.7116, -9.1393, { fotos: [F('lis_tranvia')], nota: 'Subir en Martim Moniz, que es cabecera y hay sitio para sentarse.' });
+  PL('l04', 0, '17:30', 'Castillo de San Jorge y miradores de Alfama', 'visita', 38.7139, -9.1335, { fotos: [F('lis_alfama'), F('lis_azulejos')], nota: 'Bajar andando por el mirador de Santa Luzia.' });
+  PL('l05', 0, '21:00', 'Cena y fado en Bairro Alto', 'comida', 38.7134, -9.1446, { fotos: [F('lis_bairro')], nota: 'Tasca do Chico: sin reserva, llegar antes de las 21:00.', por: 'p3' });
+  PL('l11', 1, '09:30', 'Torre de Belém', 'visita', 38.6916, -9.2160, { fotos: [F('lis_belem')], nota: 'Entradas compradas para las 9:30.' });
+  PL('l12', 1, '11:00', 'Monasterio de los Jerónimos', 'visita', 38.6979, -9.2068, { fotos: [F('lis_jeronimos')], nota: 'El claustro es lo mejor. Entrada combinada con la torre.' });
+  PL('l13', 1, '12:45', 'Pastéis de Belém', 'comida', 38.6975, -9.2032, { fotos: [F('lis_nata')], nota: 'Pedir para tomar dentro: la cola de fuera es solo para llevar.', por: 'p3' });
+  PL('l14', 1, '19:00', 'Atardecer junto al puente 25 de Abril', 'visita', 38.7047, -9.1778, { fotos: [F('lis_puente')], nota: 'Desde LX Factory o el muelle de Santo Amaro.' });
+  PL('l21', 2, '08:40', 'Tren a Sintra desde Rossio', 'transporte', 38.7144, -9.1411, { fin: '09:20' });
+  PL('l22', 2, '10:00', 'Palacio da Pena', 'visita', 38.7876, -9.3906, { fotos: [F('lis_sintra')], nota: 'Entrada con hora a las 10:00. Subir en el autobús 434.', por: 'p1' });
+  PL('l23', 2, '20:30', 'Vuelo de vuelta a Madrid', 'vuelo', 38.7742, -9.1342);
+  const IL = (id, titulo, fuente, url, img, extra) => pon('ideas', id, Object.assign({ viaje: 'vls', titulo, fuente, url, imagen: img ? F(img) : null }, extra || {}));
+  IL('il1', 'Los mejores pastéis de nata de Lisboa', 'tiktok', 'https://www.tiktok.com/@ejemplo/video/3', 'lis_nata', { autor: '@lisboacome', por: 'p3' });
+  IL('il2', 'Fachadas de azulejo en Alfama', 'instagram', 'https://www.instagram.com/p/ejemplo3/', 'lis_azulejos', { autor: '@azulejo.walks' });
+  IL('il3', 'Arte urbano en Bairro Alto', 'instagram', 'https://www.instagram.com/p/ejemplo4/', 'lis_bairro', { autor: '@streetlisboa', por: 'p2' });
+  IL('il4', 'Miradouro da Senhora do Monte', 'maps', 'https://maps.google.com/?q=38.7192,-9.1325', 'lis_alfama', { lugar: { lat: 38.7192, lng: -9.1325 }, nota: 'El mirador más alto, menos gente que Santa Luzia.' });
+  IL('il5', 'Sintra en un día', 'web', 'https://www.ejemplo.com/sintra', 'lis_sintra', { nota: 'Orden recomendado: Pena, Moorish y Quinta da Regaleira.' });
+  const DL = (id, tipo, titulo, cuando, extra) => pon('docs', id, Object.assign({ viaje: 'vls', tipo, titulo, cuando }, extra || {}));
+  DL('dl1', 'vuelo', 'Madrid → Lisboa', L(0) + ' 09:15', { codigo: 'TP1027', detalles: '3 pasajeros · solo equipaje de mano', por: 'p2' });
+  DL('dl2', 'hotel', 'Hotel Bairro Alto', L(0) + ' 15:00', { codigo: 'BA-77410', detalles: '2 habitaciones · 2 noches' });
+  DL('dl3', 'entrada', 'Torre de Belém y Jerónimos', L(1) + ' 09:30', { codigo: 'BEL-3093', detalles: 'Entrada combinada · 3 personas' });
+  DL('dl4', 'entrada', 'Palacio da Pena', L(2) + ' 10:00', { codigo: 'PENA-1000', detalles: '3 entradas con hora' });
+  DL('dl5', 'vuelo', 'Lisboa → Madrid', L(2) + ' 20:30', { codigo: 'TP1028', detalles: '3 pasajeros' });
+
+  /* ===== ISLANDIA · 4 días, vivido hace dos meses ===== */
+  const i0 = sumaDias(hoyC, -62), I = n => sumaDias(i0, n);
+  pon('viajes', 'vis', { nombre: 'Islandia', lugar: 'Costa sur y auroras boreales', ciudad: 'Reikiavik', pais: 'IS', tz: 'Atlantic/Reykjavik', moneda: 'ISK', lat: 64.1466, lng: -21.9426, desde: i0, hasta: I(3), portada: F('isl_aurora_casa'), quienes: ['p1', 'p2', 'p3', 'p4'] });
+  const PI = (id, d, hora, nombre, tipo, lat, lng, extra) => pon('paradas', id, Object.assign({ viaje: 'vis', dia: I(d), hora, nombre, tipo, lugar: { lat, lng, dir: 'Islandia' }, hecho: true }, extra || {}));
+  PI('s01', 0, '10:00', 'Llegada a Keflavík', 'vuelo', 63.985, -22.6056, { nota: 'Recoger el 4x4 en el aparcamiento P2.', por: 'p2' });
+  PI('s02', 0, '13:30', 'Hallgrímskirkja', 'visita', 64.1417, -21.9266, { fotos: [F('isl_hallgrim')], nota: 'Subir a la torre: 1.400 coronas.' });
+  PI('s03', 0, '17:00', 'Laguna Azul', 'actividad', 63.8804, -22.4495, { fotos: [F('isl_laguna')], nota: 'Mascarilla de sílice incluida. Llevar el pelo recogido.', por: 'p3' });
+  PI('s11', 1, '10:00', 'Geysir y Strokkur', 'visita', 64.3104, -20.3024, { fotos: [F('isl_geysir')], nota: 'Strokkur salta cada 6 u 8 minutos.' });
+  PI('s12', 1, '14:00', 'Carretera hacia la costa sur', 'transporte', 63.9, -20.2, { fotos: [F('isl_valle')], fin: '16:30' });
+  PI('s13', 1, '22:30', 'Auroras desde la cabaña', 'actividad', 63.53, -19.51, { fotos: [F('isl_aurora_casa')], nota: 'Previsión de actividad 5. Salieron a las 23:10.', por: 'p4' });
+  PI('s21', 2, '09:00', 'Seljalandsfoss', 'visita', 63.6156, -19.9886, { fotos: [F('isl_seljaland')], nota: 'Se puede pasar por detrás: chubasquero imprescindible.' });
+  PI('s22', 2, '11:30', 'Skógafoss', 'visita', 63.5321, -19.5114, { fotos: [F('isl_skogafoss')], nota: 'Con sol sale arcoíris casi siempre.' });
+  PI('s23', 2, '15:00', 'Playa negra de Reynisfjara', 'visita', 63.4044, -19.0444, { fotos: [F('isl_reynis')], nota: 'Cuidado con las olas: no acercarse a la orilla.', por: 'p2' });
+  PI('s24', 2, '23:00', 'Auroras en la carretera 1', 'actividad', 63.42, -19.0, { fotos: [F('isl_aurora_ruta')] });
+  PI('s31', 3, '10:00', 'Jökulsárlón y la playa de los diamantes', 'visita', 64.0484, -16.1799, { fotos: [F('isl_diamante')], nota: 'Paseo en barca anfibia entre icebergs.', por: 'p1' });
+  PI('s32', 3, '18:00', 'Vuelta a Reikiavik', 'transporte', 64.1466, -21.9426, { fin: '23:00' });
+  pon('ideas', 'is1', { viaje: 'vis', titulo: 'Previsión de auroras', fuente: 'web', url: 'https://www.ejemplo.com/auroras', imagen: F('isl_aurora_ruta'), nota: 'Mirar a partir de las 21:00.', pasada: true });
+  pon('ideas', 'is2', { viaje: 'vis', titulo: 'Diamond Beach al amanecer', fuente: 'tiktok', url: 'https://www.tiktok.com/@ejemplo/video/4', imagen: F('isl_diamante'), autor: '@nordiclight' });
+  pon('docs', 'ds1', { viaje: 'vis', tipo: 'vuelo', titulo: 'Madrid → Keflavík', cuando: I(0) + ' 06:20', codigo: 'FI597', detalles: '4 pasajeros' });
+  pon('docs', 'ds2', { viaje: 'vis', tipo: 'coche', titulo: 'Alquiler 4x4', cuando: I(0) + ' 10:30', codigo: 'BLU-5521', detalles: 'Seguro de gravilla y ceniza incluido' });
+  [['isl_hallgrim', 0], ['isl_laguna', 0], ['isl_geysir', 1], ['isl_valle', 1], ['isl_aurora_casa', 1], ['isl_seljaland', 2], ['isl_skogafoss', 2], ['isl_reynis', 2], ['isl_aurora_ruta', 2], ['isl_diamante', 3]]
+    .forEach(([f, d], i) => pon('medios', 'ms' + i, { viaje: 'vis', dia: I(d), tipo: 'foto', demo: f, por: ['p1', 'p2', 'p3', 'p4'][i % 4] }));
+
+  [['vkt', 'p3', 'ha añadido Mercado de Nishiki', 25], ['vkt', 'p2', 'ha subido 3 fotos de Fushimi Inari', 90], ['vkt', 'p1', 'ha marcado Ceremonia del té como hecho', 180], ['vkt', 'p3', 'ha guardado una idea de TikTok', 400], ['vkt', 'p4', 'se ha unido al viaje', 2900],
+   ['vls', 'p2', 'ha subido la reserva del vuelo', 1300], ['vls', 'p3', 'ha guardado una idea de Instagram', 2100], ['vis', 'p4', 'ha subido las fotos de las auroras', 88000]]
+    .forEach(([v, por, txt, min], i) => pon('actividad', 'ac' + i, { viaje: v, txt, por, cuando: Date.now() - min * 60000 }));
   S.seq = 1;
 }
 
@@ -1181,14 +1244,14 @@ PANT.bienvenida = {
         <div class="o-bien-b">
           <button class="o-pil o-blanca t t-g" data-a="crear" data-e>Crear nuestro espacio</button>
           <button class="o-pil o-vido t t-g" data-a="unirse" data-e>Tengo una invitación</button>
-          <button class="o-enlace o-claro t" data-a="demo" data-e>Ver un viaje de ejemplo</button>
+          <button class="o-pil o-vido o-demo-b t" data-a="demo" data-e>${ic('play', 16)}Ver ejemplo de prueba</button>
         </div>
       </div></div>`;
   },
   acciones: {
     crear: () => Nav.ir('conectar', { modo: 'crear' }),
     unirse: () => Nav.ir('conectar', { modo: 'unirse' }),
-    demo: async () => { S.cfg = { demo: true, persona: 'p1', rol: 'admin' }; await DB.set('cfg', S.cfg); crearDemo(); guardarLocal(true); Nav.raiz('inicio'); aviso('Es un viaje de ejemplo. Lo que cambies se queda en este móvil.'); }
+    demo: async () => { S.cfg = { demo: true, persona: 'p1', rol: 'admin' }; await DB.set('cfg', S.cfg); crearDemo(); guardarLocal(true); Nav.raiz('inicio'); aviso('Ejemplo de prueba: tres viajes inventados. Lo que cambies se queda en este móvil.'); }
   }
 };
 
@@ -3001,7 +3064,7 @@ PANT.ajustes = {
       <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button></div>
       <h1 class="o-t1" data-e="titulo" style="margin-top:14px">Ajustes</h1>
       ${me ? `<div class="o-yo" data-e>${avatar(me, 64)}<div><div class="o-t2">${esc(me.nombre)}</div><div class="o-nota">${esc(ROLES[me.rol] || 'Editor')} · ${esc((dato('espacio', 'espacio') || {}).nombre || '')}</div></div><button class="o-bt o-borde t t-s" data-a="editarYo">${ic('edit', 19)}</button></div>` : ''}
-      ${demo ? `<div class="o-demo" data-e><div class="o-t3">Es el viaje de ejemplo</div><p class="o-nota">Lo que cambies se queda en este móvil. Cuando quieras, conecta vuestro espacio de verdad.</p><button class="o-pil o-peq t" data-a="salirDemo">Conectar nuestro espacio</button></div>` : ''}
+      ${demo ? `<div class="o-demo" data-e><div class="o-t3">Es el ejemplo de prueba</div><p class="o-nota">Tres viajes inventados. Lo que cambies se queda en este móvil. Cuando quieras, conecta vuestro espacio de verdad.</p><button class="o-pil o-peq t" data-a="salirDemo">Conectar nuestro espacio</button></div>` : ''}
       <div class="o-grupo-a" data-e><div class="o-cap">Aspecto</div>
         <div class="o-seg"><span class="o-pild"></span>${[['auto', 'Automático', 'auto'], ['claro', 'Porcelana', 'sun'], ['oscuro', 'Grafito', 'moon']].map(([k, n, i]) => `<button class="o-seg-b t${tema === k ? ' o-on' : ''}" data-a="tema" data-k="${k}">${ic(i, 17)}<span>${n}</span></button>`).join('')}</div>
         <p class="o-nota" style="margin-top:8px">Automático cambia solo con el modo del iPhone.</p></div>

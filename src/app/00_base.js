@@ -1,7 +1,7 @@
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -259,7 +259,7 @@ function duracion(min) { if (min < 60) return min + ' min'; const h = Math.floor
 const nf = (v, dec) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec == null ? 2 : dec }).format(v);
 function iniciales(n) { return String(n || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); }
 const COLORES = ['#E8C9A0', '#B9C8B4', '#C7B8D8', '#E6B4A6', '#A9C4D6', '#D8CFA0', '#C9A9B5', '#9FC2B8'];
-function avatar(p, s) { p = p || {}; return `<span class="o-av" style="background:${esc(p.color || '#D8D1C8')};${s ? `width:${s}px;height:${s}px;font-size:${Math.round(s * .36)}px` : ''}">${esc(iniciales(p.nombre))}</span>`; }
+function avatar(p, s) { p = p || {}; const f = p.foto ? urlMedio(p.foto) : ''; return `<span class="o-av${f ? ' o-av-f' : ''}" style="background:${esc(p.color || '#D8D1C8')}${f ? ` url(${esc(f)}) center/cover` : ''};${s ? `width:${s}px;height:${s}px;font-size:${Math.round(s * .36)}px` : ''}">${f ? '' : esc(iniciales(p.nombre))}</span>`; }
 function nombreDe(id) { const p = dato('personas', id); return p ? p.nombre.split(' ')[0] : 'Alguien'; }
 function copiar(txt) {
   try { if (navigator.clipboard) return navigator.clipboard.writeText(txt).then(() => true, () => copiarViejo(txt)); } catch (e) { }
