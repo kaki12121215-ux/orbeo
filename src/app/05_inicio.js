@@ -63,7 +63,12 @@ PANT.conectar = {
       const r = await api('invitacion-ver', { codigo: k.codigo }, { url: k.url, sinToken: true });
       p.info = r; p.espacio = k.espacio;
       const box = $('.o-inv-info', el);
-      box.innerHTML = `<div class="o-fila"><div class="o-avs">${(r.personas || []).slice(0, 5).map(x => avatar(x)).join('')}</div><div><div class="o-t3">${esc((r.espacio && r.espacio.nombre) || k.espacio || 'Espacio')}</div><div class="o-nota">${(r.personas || []).length} personas · entras como ${r.rol === 'admin' ? 'administración' : r.rol === 'lector' ? 'solo lectura' : 'editor'}</div></div></div>`;
+      const papel = r.rol === 'admin' ? 'administración' : r.rol === 'lector' ? 'solo lectura' : 'editor';
+      box.innerHTML = r.persona
+        ? `<div class="o-fila">${avatar(r.persona, 44)}<div><div class="o-t3">Entras como ${esc(r.persona.nombre)}</div><div class="o-nota">Este aparato se une a tu espacio con tus viajes y tu papel</div></div></div>`
+        : `<div class="o-fila"><div class="o-avs">${(r.personas || []).slice(0, 5).map(x => avatar(x)).join('')}</div><div><div class="o-t3">${r.viaje ? esc(r.viaje.nombre) : esc((r.espacio && r.espacio.nombre) || k.espacio || 'Espacio')}</div><div class="o-nota">${r.viaje ? 'Te invitan a este viaje' : (r.personas || []).length + ' personas'} · entras como ${papel}</div></div></div>`;
+      const nom = $('#f-nom', el); if (nom) nom.closest('.o-campo').style.display = r.persona ? 'none' : '';
+      const col = $('.o-colores', el); if (col) col.closest('.o-campo').style.display = r.persona ? 'none' : '';
       animar(box, [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 520, easing: CURVA.muelle });
       if (r.persona) { $('#f-nom', el).value = r.persona.nombre; }
     } catch (e) { error(el, e.message); }
@@ -335,12 +340,14 @@ function editarViaje(v, o) {
         if (!(await Capa.confirmar({ titulo: '¿Borrar «' + v.nombre + '»?', texto: 'Se borra para todo el grupo, con sus paradas, ideas y documentos.', si: 'Borrar', peligro: true }))) return;
         borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje borrado');
       },
-      guardar: () => {
+      guardar: async (b) => {
         const h = c.hoja;
         leer(h);
         if (!f.nombre) { Anim.no($('#f-vn', h).parentNode); return error(h, 'Ponle un nombre al viaje.'); }
         if (!f.desde) { Anim.no($('#f-vde', h).parentNode); return error(h, 'Falta la fecha de salida.'); }
         if (!f.hasta || f.hasta < f.desde) f.hasta = f.desde;
+        /* Destino escrito sin elegir sugerencia: se busca igualmente para saber su hora y su moneda */
+        if (!f.tz && f.ciudad && f.lat == null) { cargando(b, true); try { const s1 = (await Lugar.buscar(f.ciudad, { ciudades: true }))[0]; if (s1 && s1.lat != null) { f.lat = s1.lat; f.lng = s1.lng; f.pais = s1.pais || ''; const cc0 = s1.tz ? s1 : ciudadCercana(s1.lat, s1.lng); if (cc0 && cc0.tz) f.tz = cc0.tz; f.moneda = monedaDe(f.pais || (cc0 && cc0.pais)); } } catch (e) { } cargando(b, false); }
         if (!f.tz) { const cc = buscarCiudades(f.ciudad)[0]; f.tz = cc ? cc.tz : TZ_CASA(); if (cc) { f.lat = cc.lat; f.lng = cc.lng; f.pais = cc.pais; f.moneda = monedaDe(cc.pais); } }
         const campos = { nombre: f.nombre, lugar: f.lugar, ciudad: f.ciudad, desde: f.desde, hasta: f.hasta, tz: f.tz, moneda: f.moneda || 'EUR', pais: f.pais || '', lat: f.lat ?? null, lng: f.lng ?? null, quienes: f.quienes, portada: f.portada || null };
         let id = v && v.id;

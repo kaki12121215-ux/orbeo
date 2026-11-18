@@ -16,7 +16,7 @@
  * Al cambiar este código: Implementar › Gestionar implementaciones › lápiz ›
  * Versión: «Nueva versión» › Implementar. NUNCA «Nueva implementación» (cambia la dirección).
  */
-const VERSION_SCRIPT = '1.0.0';
+const VERSION_SCRIPT = '1.1.0';
 const ZONA = 'Europe/Madrid';
 const HORAS_CODIGO = 12;
 const MAX_ARCHIVO = 20 * 1024 * 1024;
@@ -27,7 +27,7 @@ const ANCHO = 4 + TROZOS_JSON;
 const ALFABETO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const COLORES = ['#E8C9A0', '#B9C8B4', '#C7B8D8', '#E6B4A6', '#A9C4D6', '#D8CFA0', '#C9A9B5', '#9FC2B8'];
 const ROLES = ['admin', 'editor', 'lector'];
-const SOLO_SCRIPT = { personas: ['rol', 'alta', '_b'] };
+const SOLO_SCRIPT = { personas: ['rol', 'alta', '_b', 'viajes'] };
 const MODELOS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
 const MODELOS_IMAGEN = ['gemini-3-pro-image', 'gemini-3-flash-image', 'gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview'];
 
@@ -136,8 +136,10 @@ function atender_(d) {
   if (a === 'unirse') return conBloqueo_(() => unirse_(d));
   const yo = quienSoy_(d.t);
   switch (a) {
-    case 'estado': return { persona: yo.p, rol: yo.rol, seq: seq_(), sid: P_().getProperty('SID'), gemini: !!P_().getProperty('GEMINI_API_KEY') };
-    case 'cambios': return cambios_(Number(d.desde) || 0);
+    case 'estado': return { persona: yo.p, rol: yo.rol, viajes: yo.vias, seq: seq_(), sid: sidDe_(yo), gemini: !!P_().getProperty('GEMINI_API_KEY') };
+    case 'cambios': return cambios_(Number(d.desde) || 0, yo);
+    case 'invitar-yo': return conBloqueo_(() => invitarYo_(yo));
+    case 'persona-viajes': soloAdmin_(yo); return conBloqueo_(() => personaViajes_(String(d.id || ''), d.viajes, yo));
     case 'guardar': return conBloqueo_(() => guardar_(d.ops || [], yo, Number(d.desde) || 0));
     case 'invitar': soloAdmin_(yo); return conBloqueo_(() => invitar_(d, yo));
     case 'persona-quitar': soloAdmin_(yo); return conBloqueo_(() => quitarPersona_(String(d.id || ''), yo));
@@ -198,10 +200,23 @@ function personasActivas_(filas) { return filas.filter(r => r.col === 'personas'
 function verInvitacion_(d) {
   const inv = leerCodigo_(d.codigo), filas = leerTodo_(), pers = personasActivas_(filas);
   const esp = filas.filter(r => r.col === 'espacio')[0];
-  return { rol: inv.rol, alta: !!inv.alta, espacio: esp ? { nombre: esp.rec.f.nombre } : null, personas: pers.map(x => ({ id: x.id, nombre: x.f.nombre, color: x.f.color })) };
+  const yoMismo = inv.persona ? pers.filter(x => x.id === inv.persona)[0] : null;
+  const via = inv.viaje ? filas.filter(r => r.col === 'viajes' && r.id === inv.viaje && !r.rec.f._b)[0] : null;
+  return { rol: inv.rol, alta: !!inv.alta, espacio: esp ? { nombre: esp.rec.f.nombre } : null, personas: pers.map(x => ({ id: x.id, nombre: x.f.nombre, color: x.f.color })),
+    persona: yoMismo ? { id: yoMismo.id, nombre: yoMismo.f.nombre, color: yoMismo.f.color } : null, viaje: via ? { id: via.id, nombre: via.rec.f.nombre } : null };
 }
 function unirse_(d) {
   const inv = leerCodigo_(d.codigo), p = P_(), filas = leerTodo_(), pers = personasActivas_(filas);
+  /* Otro aparato de la misma persona: entra como ella, sin crear a nadie nuevo */
+  if (inv.persona) {
+    const yo = pers.filter(x => x.id === inv.persona)[0];
+    if (!yo) fallo_('invitacion', 'Esa persona ya no está en el espacio.');
+    const rolYo = p.getProperty('rol:' + yo.id) || yo.f.rol || 'editor';
+    const tok = nuevoId_(40);
+    p.setProperty('tok:' + huella_(tok), JSON.stringify({ p: yo.id, rol: rolYo, alta: Date.now() }));
+    p.deleteProperty('inv:' + inv.codigo);
+    return { token: tok, persona: yo.id, rol: rolYo, sid: sidDe_({ p: yo.id }), seq: seq_() };
+  }
   const rol = ROLES.indexOf(inv.rol) >= 0 ? inv.rol : 'editor';
   const nombre = String(d.nombre || '').trim().slice(0, 40);
   if (!nombre) fallo_('datos', 'Falta tu nombre.');
@@ -209,13 +224,46 @@ function unirse_(d) {
   if (COLORES.indexOf(color) < 0) color = COLORES[0];
   if (pers.some(x => String(x.f.color || '').toUpperCase() === color)) color = COLORES.filter(c => !pers.some(x => String(x.f.color || '').toUpperCase() === c))[0] || color;
   const id = 'p' + nuevoId_(9);
-  escribirScript_(filas, 'personas', id, { nombre: nombre, color: color, rol: rol, alta: Date.now() }, id);
+  escribirScript_(filas, 'personas', id, Object.assign({ nombre: nombre, color: color, rol: rol, alta: Date.now() }, inv.viaje ? { viajes: [inv.viaje] } : {}), id);
+  /* Invitación a un viaje concreto: solo ve ese viaje y se apunta como viajero */
+  if (inv.viaje) {
+    p.setProperty('via:' + id, JSON.stringify([inv.viaje]));
+    const v = filas.filter(r => r.col === 'viajes' && r.id === inv.viaje)[0];
+    if (v) { const q = (v.rec.f.quienes || []).slice(); if (q.indexOf(id) < 0) q.push(id); escribirScript_(filas, 'viajes', inv.viaje, { quienes: q }, id); }
+  }
   if (inv.alta && d.espacio) escribirScript_(filas, 'espacio', 'espacio', { nombre: String(d.espacio.nombre || 'Nuestros viajes').trim().slice(0, 40) }, id);
   const token = nuevoId_(40);
   p.setProperty('tok:' + huella_(token), JSON.stringify({ p: id, rol: rol, alta: Date.now() }));
   p.deleteProperty('inv:' + inv.codigo);
   if (rol === 'admin') p.setProperty('HAY_ADMIN', '1');
-  return { token: token, persona: id, rol: rol, sid: p.getProperty('SID'), seq: seq_() };
+  return { token: token, persona: id, rol: rol, sid: sidDe_({ p: id }), seq: seq_() };
+}
+/* Viajes que puede ver una persona (null = todos) */
+function viasDe_(id) { const r = P_().getProperty('via:' + id); if (!r) return null; try { return JSON.parse(r); } catch (e) { return null; } }
+/* El identificador de la copia cambia si cambian los viajes que ve: su móvil vuelve a bajarlo todo */
+function sidDe_(yo) { return P_().getProperty('SID') + (yo && yo.p ? (P_().getProperty('sidp:' + yo.p) || '') : ''); }
+function visible_(x, yo) {
+  if (!yo || !yo.vias) return true;
+  const f = x.rec.f || {};
+  if (x.col === 'viajes') return yo.vias.indexOf(x.id) >= 0;
+  if (f.viaje) return yo.vias.indexOf(f.viaje) >= 0;
+  if (x.col === 'personas' || x.col === 'espacio' || x.col === 'categorias') return true;
+  return x.por === yo.p;
+}
+function invitarYo_(yo) {
+  const c = crearCodigo_({ rol: yo.rol, por: yo.p, persona: yo.p });
+  return { codigo: formatoCodigo_(c.codigo), caduca: c.caduca };
+}
+function personaViajes_(id, viajes, yo) {
+  const filas = leerTodo_(), pe = personasActivas_(filas).filter(x => x.id === id)[0];
+  if (!pe) fallo_('datos', 'Esa persona ya no está en el espacio.');
+  if (id === yo.p) fallo_('permiso', 'No puedes limitar tus propios viajes.');
+  const p = P_();
+  const lista = Array.isArray(viajes) ? viajes.map(String).filter(v => /^[A-Za-z0-9_-]{3,40}$/.test(v)) : null;
+  if (lista) p.setProperty('via:' + id, JSON.stringify(lista)); else p.deleteProperty('via:' + id);
+  p.setProperty('sidp:' + id, nuevoId_(6));
+  escribirScript_(filas, 'personas', id, { viajes: lista || [] }, yo.p);
+  return cambios_(0, yo);
 }
 function quienSoy_(t) {
   if (!t) fallo_('token', 'Este móvil no está conectado al espacio.');
@@ -224,13 +272,20 @@ function quienSoy_(t) {
   const o = JSON.parse(raw);
   /* El papel vale el que tenga ahora la persona en la hoja (puede haber cambiado) */
   const raw2 = P_().getProperty('rol:' + o.p); if (raw2) o.rol = raw2;
+  o.vias = viasDe_(o.p);
   return o;
 }
 function soloAdmin_(yo) { if (yo.rol !== 'admin') fallo_('permiso', 'Esto solo lo puede hacer quien administra el espacio.'); }
 function puedeEditar_(yo) { if (yo.rol === 'lector') fallo_('permiso', 'Con tu papel solo puedes ver. Pide a quien administra que te haga editor.'); }
 function invitar_(d, yo) {
   const rol = ROLES.indexOf(d.rol) >= 0 ? d.rol : 'editor';
-  const c = crearCodigo_({ rol: rol, por: yo.p });
+  const datos = { rol: rol, por: yo.p };
+  if (d.viaje) {
+    const v = leerTodo_().filter(r => r.col === 'viajes' && r.id === String(d.viaje) && !r.rec.f._b)[0];
+    if (!v) fallo_('datos', 'Ese viaje ya no está.');
+    datos.viaje = v.id;
+  }
+  const c = crearCodigo_(datos);
   return { codigo: formatoCodigo_(c.codigo), caduca: c.caduca };
 }
 function cambiarRol_(id, rol, yo) {
@@ -240,7 +295,7 @@ function cambiarRol_(id, rol, yo) {
   if (id === yo.p && rol !== 'admin' && personasActivas_(filas).filter(x => x.f.rol === 'admin').length < 2) fallo_('permiso', 'Tiene que quedar al menos una persona en administración.');
   escribirScript_(filas, 'personas', id, { rol: rol }, yo.p);
   P_().setProperty('rol:' + id, rol);
-  return cambios_(0);
+  return cambios_(0, yo);
 }
 function quitarPersona_(id, yo) {
   if (id === yo.p) fallo_('permiso', 'No puedes quitarte a ti. Pide a otra persona administradora que lo haga.');
@@ -249,7 +304,8 @@ function quitarPersona_(id, yo) {
   const p = P_(), todas = p.getProperties();
   Object.keys(todas).forEach(k => { if (k.indexOf('tok:') === 0) { try { if (JSON.parse(todas[k]).p === id) p.deleteProperty(k); } catch (e) { } } });
   escribirScript_(filas, 'personas', id, { _b: 1 }, yo.p);
-  return cambios_(0);
+  P_().deleteProperty('via:' + id);
+  return cambios_(0, yo);
 }
 
 /* ============================ DATOS ============================ */
@@ -276,10 +332,10 @@ function trocear_(s) {
 function jsonBasico_(o) { return JSON.stringify(o).replace(/[\u007f-￿]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4)); }
 function filaDe_(x) { return [x.id, x.col, String(x.rev), x.por].concat(trocear_(jsonBasico_(x.rec))).map(v => v ? "'" + v : ''); }
 function salida_(x) { return { id: x.id, col: x.col, rev: x.rev, por: x.por, f: x.rec.f, t: x.rec.t }; }
-function cambios_(desde) {
-  const s = seq_(), sid = P_().getProperty('SID');
+function cambios_(desde, yo) {
+  const s = seq_(), sid = sidDe_(yo);
   if (desde >= s && desde > 0) return { seq: s, sid: sid, cambios: [] };
-  return { seq: s, sid: sid, cambios: leerTodo_().filter(x => x.rev > desde).map(salida_) };
+  return { seq: s, sid: sid, cambios: leerTodo_().filter(x => x.rev > desde && visible_(x, yo)).map(salida_) };
 }
 function valido_(op) { return op && /^[A-Za-z0-9_-]{3,40}$/.test(String(op.id || '')) && /^[a-z][a-z0-9-]{1,24}$/.test(String(op.col || '')) && op.f && typeof op.f === 'object'; }
 /* Campo a campo: gana la fecha más reciente de cada campo. */
@@ -308,6 +364,14 @@ function guardar_(ops, yo, desde) {
     if (col === 'espacio' && yo.rol !== 'admin' && Object.keys(op.f).some(k => k !== 'mapsKey')) { avisos.push('permiso:' + id); return; }
     if (col === 'personas' && id !== yo.p && yo.rol !== 'admin') { avisos.push('permiso:' + id); return; }
     let x = idx[col + '|' + id];
+    /* Quien solo tiene algunos viajes no toca nada de los demás ni crea viajes nuevos */
+    if (yo.vias) {
+      if (col === 'viajes' && yo.vias.indexOf(id) < 0) { avisos.push('permiso:' + id); return; }
+      if (col === 'espacio') { avisos.push('permiso:' + id); return; }
+      const vv = (x && x.rec.f.viaje) || op.f.viaje;
+      if (vv && yo.vias.indexOf(vv) < 0) { avisos.push('permiso:' + id); return; }
+      if (op.f.viaje && x && x.rec.f.viaje && op.f.viaje !== x.rec.f.viaje) { avisos.push('permiso:' + id); return; }
+    }
     const esNueva = !x;
     if (esNueva) {
       if (col === 'personas') { avisos.push('no-existe:' + id); return; }
@@ -322,7 +386,7 @@ function guardar_(ops, yo, desde) {
   });
   escribirFilas_(tocadas, nuevas);
   P_().setProperty('SEQ', String(seq));
-  return { seq: seq, sid: P_().getProperty('SID'), avisos: avisos, cambios: filas.filter(x => x.rev > desde).map(salida_) };
+  return { seq: seq, sid: sidDe_(yo), avisos: avisos, cambios: filas.filter(x => x.rev > desde && visible_(x, yo)).map(salida_) };
 }
 function escribirFilas_(tocadas, nuevas) {
   const h = hoja_();

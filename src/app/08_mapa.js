@@ -1,8 +1,9 @@
 /* ============================ MAPA Y LUGARES ============================
    Con clave de Google Maps: mapa de Google con su buscador de sitios y sus fotos.
    Sin clave: mapa propio con teselas de CARTO (OpenStreetMap), buscador Photon y fotos de Wikipedia. */
-function claveMaps() { return (S.pref.mapsKey || ((dato('espacio', 'espacio') || {}).mapsKey) || '').trim(); }
+function claveMaps() { if (GM_MAL) return ''; return (S.pref.mapsKey || ((dato('espacio', 'espacio') || {}).mapsKey) || '').trim(); }
 
+let GM_MAL = false;
 const GM = {
   prom: null,
   cargar() {
@@ -13,7 +14,14 @@ const GM = {
     this.k = k;
     this.prom = new Promise((ok, ko) => {
       window.__orbeoMaps = () => ok(google.maps);
-      window.gm_authFailure = () => { anotar('maps', 'La clave de Google Maps no es válida o no tiene permiso para esta dirección.'); aviso('Google Maps no acepta la clave. Revísala en Ajustes.'); };
+      window.gm_authFailure = () => {
+        anotar('maps', 'La clave de Google Maps no es válida o no tiene permiso para esta dirección.');
+        aviso('Google Maps no acepta la clave (mira Ajustes). Mientras, sale el mapa abierto.');
+        /* Se vuelve al mapa abierto: nunca se queda la pantalla gris de error */
+        GM_MAL = true; GM.prom = null;
+        $$('.o-mapa').forEach(c => { c._mapa = null; c.innerHTML = ''; });
+        Nav.refrescar();
+      };
       const s = document.createElement('script');
       s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(k)}&v=weekly&loading=async&libraries=places&language=es&callback=__orbeoMaps`;
       s.async = true; s.onerror = () => { this.prom = null; ko(new Error('No se ha podido cargar Google Maps')); };

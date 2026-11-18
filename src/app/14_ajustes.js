@@ -20,7 +20,7 @@ PANT.ajustes = {
     return `<div class="o-cont o-ajus">
       <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button></div>
       <h1 class="o-t1" data-e="titulo" style="margin-top:14px">Ajustes</h1>
-      ${me ? `<div class="o-yo" data-e>${avatar(me, 64)}<div><div class="o-t2">${esc(me.nombre)}</div><div class="o-nota">${esc(ROLES[me.rol] || 'Editor')} · ${esc((dato('espacio', 'espacio') || {}).nombre || '')}</div></div><button class="o-bt o-borde t t-s" data-a="editarYo">${ic('edit', 19)}</button></div>` : ''}
+      ${me ? `<div class="o-yo" data-e><button class="o-yo-av t t-s" data-a="fotoYo" aria-label="Cambiar tu foto">${avatar(me, 64)}<span class="o-yo-cam">${ic('camera', 13, 2)}</span></button><div><div class="o-t2">${esc(me.nombre)}</div><div class="o-nota">${esc(ROLES[me.rol] || 'Editor')} · ${esc((dato('espacio', 'espacio') || {}).nombre || '')}</div></div><button class="o-bt o-borde t t-s" data-a="editarYo">${ic('edit', 19)}</button></div>` : ''}
       ${demo ? `<div class="o-demo" data-e><div class="o-t3">Es el ejemplo de prueba</div><p class="o-nota">Tres viajes inventados. Lo que cambies se queda en este móvil. Cuando quieras, conecta vuestro espacio de verdad.</p><button class="o-pil o-peq t" data-a="salirDemo">Conectar nuestro espacio</button></div>` : ''}
       <div class="o-grupo-a" data-e><div class="o-cap">Aspecto</div>
         <div class="o-seg"><span class="o-pild"></span>${[['auto', 'Automático', 'auto'], ['claro', 'Porcelana', 'sun'], ['oscuro', 'Grafito', 'moon']].map(([k, n, i]) => `<button class="o-seg-b t${tema === k ? ' o-on' : ''}" data-a="tema" data-k="${k}">${ic(i, 17)}<span>${n}</span></button>`).join('')}</div>
@@ -37,6 +37,9 @@ PANT.ajustes = {
         <div class="o-aj-f"><span>Pendiente de enviar</span><span class="o-nota tn">${Sync.pendientes()} cambios</span></div>
         <div class="o-fila" style="margin-top:10px;gap:8px"><button class="o-pil o-sec o-peq t" data-a="sync">${ic('rotate', 16)}Sincronizar</button><button class="o-pil o-sec o-peq t" data-a="comprobar">${ic('check', 16)}Comprobar todo</button></div>
         <div id="a-comp"></div></div>
+      ${!demo ? `<div class="o-grupo-a" data-e><div class="o-cap">Tus dispositivos</div>
+        <p class="o-nota">Para abrir tu espacio también en el ordenador o en otro móvil, como tú y sin duplicarte en el grupo.</p>
+        <button class="o-pil o-peq t" data-a="otroDisp" style="margin-top:10px">${ic('desktop', 16)}Conectar otro dispositivo mío</button></div>` : ''}
       ${!instalada ? `<div class="o-grupo-a" data-e><div class="o-cap">En el iPhone</div><p class="o-txt">Abre esta página en Safari, toca Compartir y elige «Añadir a pantalla de inicio». Así se abre a pantalla completa y sin conexión.</p></div>` : ''}
       <div class="o-grupo-a" data-e><div class="o-cap">Feedback</div>
         <p class="o-nota">Apunta lo que falle o lo que se te ocurra, con capturas. Luego lo exportas en un zip.</p>
@@ -77,13 +80,19 @@ PANT.ajustes = {
       fila('serviceWorker' in navigator && !!navigator.serviceWorker.controller, 'Funciona sin conexión', navigator.serviceWorker && navigator.serviceWorker.controller ? 'Listo' : 'Se activa al volver a abrir');
       cargando(b, false);
     },
+    fotoYo: () => cambiarFotoPersona(yo()),
+    otroDisp: () => invitar(null, { yoMismo: true }),
     editarYo: () => {
       const me = dato('personas', yo()); let color = me.color;
       const c = Capa.hoja({
-        html: `<div class="o-hcab" data-e><div class="o-t2">Tú</div></div>${campo('yn', 'Nombre', '', me.nombre)}
+        html: `<div class="o-hcab" data-e><div class="o-t2">Tú</div></div>
+          <div class="o-yo-foto" data-e>${avatar(me, 88)}<div class="o-fila" style="gap:8px"><button class="o-pil o-sec o-peq t" data-a="fotoYoH">${ic('camera', 16)}${me.foto ? 'Cambiar foto' : 'Poner foto'}</button>${me.foto ? `<button class="o-pil o-sec o-peq t" data-a="sinFoto">Quitar</button>` : ''}</div></div>
+          ${campo('yn', 'Nombre', '', me.nombre)}
           <div class="o-campo" data-e><div class="o-etq">Color</div><div class="o-colores">${COLORES.map(k => `<button class="o-color t t-s${k === me.color ? ' o-on' : ''}" data-a="col" data-c="${k}" style="background:${k}"><span>${ic('check', 16, 2.2)}</span></button>`).join('')}</div></div>
           <button class="o-pil t t-g" data-a="ok" data-e style="margin-top:18px">Guardar</button>`,
         acciones: {
+          fotoYoH: async () => { await cambiarFotoPersona(yo()); c.cerrar(); },
+          sinFoto: () => { poner('personas', yo(), { foto: null }); c.cerrar(); },
           col: (b) => { color = b.dataset.c; $$('.o-color', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.salto(b); },
           ok: () => { const n = $('#f-yn', c.hoja).value.trim(); if (n) poner('personas', yo(), { nombre: n, color }); c.cerrar(); }
         }

@@ -113,3 +113,13 @@ html[data-tema="oscuro"] .o-cal-ev{background:color-mix(in srgb,var(--cc) 30%,va
 .o-bor .o-filav-f{border:1px dashed var(--linea2);color:var(--gris)}
 .o-bor-x{width:40px;height:40px;color:var(--gris)}
 .o-vista{position:absolute;right:0;top:2px;margin:0}
+/* Fotos de las personas */
+.o-yo-av{position:relative;border-radius:50%;flex:none}
+.o-yo-cam{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--pil);color:var(--pil-t);display:grid;place-items:center;border:2px solid var(--capa)}
+.o-yo-foto{display:flex;flex-direction:column;align-items:center;gap:14px;margin:4px 0 18px}
+/* Qué viajes ve una persona */
+.o-vsel{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px 4px;border-bottom:1px solid var(--linea)}
+.o-vsel>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.o-vsel .o-casilla{width:24px;height:24px;border-radius:8px;border:1.5px solid var(--linea2);display:grid;place-items:center;color:transparent;flex:none;transition:background-color .22s,border-color .22s,color .22s}
+.o-vsel.o-on .o-casilla{background:var(--pil);border-color:var(--pil);color:var(--pil-t)}
+.o-vsel-f{width:46px;height:46px;border-radius:14px;background:var(--sup) center/cover;flex:none}

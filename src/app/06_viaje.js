@@ -69,6 +69,7 @@ PANT.viaje.acciones.mas = (b, e, p) => {
   Capa.menu(b, [
     { t: 'Película del día', ic: 'film', f: () => Nav.ir('pelicula', { id: v.id, dia: p.dia || hoyEn(v) }) },
     { t: 'Hora y moneda', ic: 'globe', f: () => Nav.ir('hora', { id: v.id }) },
+    soyAdmin() ? { t: 'Compartir este viaje', ic: 'share', f: () => invitar(v.id, { soloViaje: true }) } : null,
     { t: 'Grupo e invitaciones', ic: 'users', f: () => Nav.ir('grupo', { id: v.id }) },
     '-',
     puedoEditar() ? { t: 'Editar el viaje', ic: 'edit', f: () => editarViaje(v) } : null,
