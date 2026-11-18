@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.8 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.9 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.8';
+const VERSION = '1.0.9';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -3932,11 +3932,8 @@ function archivarViaje(id, si) {
 /* Las dos carpetas al final del inicio */
 function carpetasInicio() {
   const na = viajes(true).length, np = papeleraInicio().length;
-  const f = (a, i, t, n, nota) => `<button class="o-carp t" data-a="${a}" data-e><span class="o-carp-i">${ic(i, 20, 1.6)}</span><span class="o-carp-t"><span class="o-t3">${t}</span><span class="o-nota">${nota}</span></span><span class="o-nota tn">${n || ''}</span>${ic('fwd', 18)}</button>`;
-  return `<div class="o-carps">
-    ${f('archivados', 'archive', 'Archivados', na, na ? (na === 1 ? '1 viaje guardado' : na + ' viajes guardados') : 'Mantén pulsado un viaje para archivarlo')}
-    ${f('papelera', 'trash', 'Papelera', np, np ? 'Se vacía sola a los 30 días' : 'Vacía')}
-  </div>`;
+  const f = (a, i, t, n) => `<button class="o-carp t" data-a="${a}"><span class="o-carp-i">${ic(i, 19, 1.6)}</span><span class="o-carp-n">${t}</span><span class="o-nota tn">${n || ''}</span></button>`;
+  return `<div class="o-carps" data-e>${f('archivados', 'archive', 'Archivados', na)}${f('papelera', 'trash', 'Papelera', np)}</div>`;
 }
 
 /* ---------- Menú al mantener pulsado */

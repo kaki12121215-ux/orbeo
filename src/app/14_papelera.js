@@ -30,11 +30,8 @@ function archivarViaje(id, si) {
 /* Las dos carpetas al final del inicio */
 function carpetasInicio() {
   const na = viajes(true).length, np = papeleraInicio().length;
-  const f = (a, i, t, n, nota) => `<button class="o-carp t" data-a="${a}" data-e><span class="o-carp-i">${ic(i, 20, 1.6)}</span><span class="o-carp-t"><span class="o-t3">${t}</span><span class="o-nota">${nota}</span></span><span class="o-nota tn">${n || ''}</span>${ic('fwd', 18)}</button>`;
-  return `<div class="o-carps">
-    ${f('archivados', 'archive', 'Archivados', na, na ? (na === 1 ? '1 viaje guardado' : na + ' viajes guardados') : 'Mantén pulsado un viaje para archivarlo')}
-    ${f('papelera', 'trash', 'Papelera', np, np ? 'Se vacía sola a los 30 días' : 'Vacía')}
-  </div>`;
+  const f = (a, i, t, n) => `<button class="o-carp t" data-a="${a}"><span class="o-carp-i">${ic(i, 19, 1.6)}</span><span class="o-carp-n">${t}</span><span class="o-nota tn">${n || ''}</span></button>`;
+  return `<div class="o-carps" data-e>${f('archivados', 'archive', 'Archivados', na)}${f('papelera', 'trash', 'Papelera', np)}</div>`;
 }
 
 /* ---------- Menú al mantener pulsado */
