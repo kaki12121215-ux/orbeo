@@ -123,3 +123,12 @@ html[data-tema="oscuro"] .o-cal-ev{background:color-mix(in srgb,var(--cc) 30%,va
 .o-vsel .o-casilla{width:24px;height:24px;border-radius:8px;border:1.5px solid var(--linea2);display:grid;place-items:center;color:transparent;flex:none;transition:background-color .22s,border-color .22s,color .22s}
 .o-vsel.o-on .o-casilla{background:var(--pil);border-color:var(--pil);color:var(--pil-t)}
 .o-vsel-f{width:46px;height:46px;border-radius:14px;background:var(--sup) center/cover;flex:none}
+
+/* 1.0.5 · importar viajes */
+.o-imp-l{display:flex;flex-direction:column;gap:2px;margin-top:14px}
+.o-imp-f{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--linea)}
+.o-imp-f:last-child{border-bottom:0}
+.o-imp-f>span:last-child{display:flex;flex-direction:column;gap:2px}
+.o-imp-i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--sup);color:var(--acento);flex:none}
+.o-imp-p{margin-top:16px}
+.o-imp-p .o-barra{margin-top:10px}

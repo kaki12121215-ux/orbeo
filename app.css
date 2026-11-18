@@ -1,4 +1,4 @@
-/* ORBEO · estilos · versión 1.0.4 */
+/* ORBEO · estilos · versión 1.0.5 */
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 
@@ -754,3 +754,12 @@ html[data-tema="oscuro"] .o-cal-ev{background:color-mix(in srgb,var(--cc) 30%,va
 .o-vsel .o-casilla{width:24px;height:24px;border-radius:8px;border:1.5px solid var(--linea2);display:grid;place-items:center;color:transparent;flex:none;transition:background-color .22s,border-color .22s,color .22s}
 .o-vsel.o-on .o-casilla{background:var(--pil);border-color:var(--pil);color:var(--pil-t)}
 .o-vsel-f{width:46px;height:46px;border-radius:14px;background:var(--sup) center/cover;flex:none}
+
+/* 1.0.5 · importar viajes */
+.o-imp-l{display:flex;flex-direction:column;gap:2px;margin-top:14px}
+.o-imp-f{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--linea)}
+.o-imp-f:last-child{border-bottom:0}
+.o-imp-f>span:last-child{display:flex;flex-direction:column;gap:2px}
+.o-imp-i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--sup);color:var(--acento);flex:none}
+.o-imp-p{margin-top:16px}
+.o-imp-p .o-barra{margin-top:10px}

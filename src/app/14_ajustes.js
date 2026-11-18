@@ -40,6 +40,9 @@ PANT.ajustes = {
       ${!demo ? `<div class="o-grupo-a" data-e><div class="o-cap">Tus dispositivos</div>
         <p class="o-nota">Para abrir tu espacio también en el ordenador o en otro móvil, como tú y sin duplicarte en el grupo.</p>
         <button class="o-pil o-peq t" data-a="otroDisp" style="margin-top:10px">${ic('desktop', 16)}Conectar otro dispositivo mío</button></div>` : ''}
+      <div class="o-grupo-a" data-e><div class="o-cap">Importar</div>
+        <p class="o-nota">Trae viajes ya planificados desde un archivo de Orbeo, con sus paradas, hoteles y fotos.</p>
+        <button class="o-pil o-peq t" data-a="importar" style="margin-top:10px">${ic('download', 16)}Importar viajes</button></div>
       ${!instalada ? `<div class="o-grupo-a" data-e><div class="o-cap">En el iPhone</div><p class="o-txt">Abre esta página en Safari, toca Compartir y elige «Añadir a pantalla de inicio». Así se abre a pantalla completa y sin conexión.</p></div>` : ''}
       <div class="o-grupo-a" data-e><div class="o-cap">Feedback</div>
         <p class="o-nota">Apunta lo que falle o lo que se te ocurra, con capturas. Luego lo exportas en un zip.</p>
@@ -80,6 +83,7 @@ PANT.ajustes = {
       fila('serviceWorker' in navigator && !!navigator.serviceWorker.controller, 'Funciona sin conexión', navigator.serviceWorker && navigator.serviceWorker.controller ? 'Listo' : 'Se activa al volver a abrir');
       cargando(b, false);
     },
+    importar: () => { if (!puedoEditar()) return aviso('Con solo lectura no puedes importar viajes.'); Importar.elegir(); },
     fotoYo: () => cambiarFotoPersona(yo()),
     otroDisp: () => invitar(null, { yoMismo: true }),
     editarYo: () => {

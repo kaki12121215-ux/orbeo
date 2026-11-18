@@ -133,6 +133,7 @@ function ayudaScript() {
 
 /* ---------- Inicio: los viajes */
 PANT.inicio = {
+  alVolver(el, p, pa) { if (pa.sucia) { pa.sucia = false; Nav.pintar(pa, false); } },
   render() {
     const vs = viajes().map(v => Object.assign(v, { _e: estadoViaje(v) }));
     const curso = vs.filter(v => v._e.e === 'curso'), fut = vs.filter(v => v._e.e === 'futuro'), pas = vs.filter(v => v._e.e === 'pasado').reverse();
