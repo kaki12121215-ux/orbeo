@@ -1,0 +1,328 @@
+/* ============================ BIENVENIDA, CONEXIÓN E INICIO ============================ */
+
+/* ---------- Pantalla de bienvenida */
+PANT.bienvenida = {
+  clase: 'o-oscura',
+  render() {
+    return `<div class="o-bien">
+      <div class="o-bien-foto" data-e="foto" style="background-image:url(img/demo/viajera.jpg)"></div>
+      <div class="o-bien-velo"></div>
+      <div class="o-bien-cab" data-e>${logo(34, { clase: 'o-logo-bl' })}<span class="o-marca">orbeo</span></div>
+      <div class="o-bien-c">
+        <div class="o-cap o-claro" data-e>Viajes en grupo, día a día</div>
+        <h1 class="o-t0 o-bien-t" data-e="titulo">Planead<br>juntos.<br>Viajad<br>ligeros.</h1>
+        <p class="o-bien-p" data-e>El plan de cada día con sus horas, el mapa, las ideas que guardáis de TikTok o Instagram, las reservas y la película del día. Para todo el grupo y sin conexión.</p>
+        <div class="o-bien-b">
+          <button class="o-pil o-blanca t t-g" data-a="crear" data-e>Crear nuestro espacio</button>
+          <button class="o-pil o-vido t t-g" data-a="unirse" data-e>Tengo una invitación</button>
+          <button class="o-enlace o-claro t" data-a="demo" data-e>Ver un viaje de ejemplo</button>
+        </div>
+      </div></div>`;
+  },
+  acciones: {
+    crear: () => Nav.ir('conectar', { modo: 'crear' }),
+    unirse: () => Nav.ir('conectar', { modo: 'unirse' }),
+    demo: async () => { S.cfg = { demo: true, persona: 'p1', rol: 'admin' }; await DB.set('cfg', S.cfg); crearDemo(); guardarLocal(true); Nav.raiz('inicio'); aviso('Es un viaje de ejemplo. Lo que cambies se queda en este móvil.'); }
+  }
+};
+
+/* ---------- Conectar: crear el espacio (con el código de alta) o unirse con una invitación */
+PANT.conectar = {
+  render(p) {
+    const crear = p.modo === 'crear';
+    p.color = p.color || COLORES[0];
+    return `<div class="o-cont o-form">
+      <div class="o-cab"><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button></div>
+      <div class="o-cap" data-e style="margin-top:18px">${crear ? 'Paso único' : 'Invitación'}</div>
+      <h1 class="o-t1" data-e="titulo" style="margin-top:8px">${crear ? 'Vuestro espacio' : 'Únete al grupo'}</h1>
+      <p class="o-txt" data-e style="margin-top:10px">${crear ? 'Se guarda en una hoja de Google tuya, con el script de Orbeo. Las instrucciones están en el paso a paso.' : 'Pega la invitación que te han enviado. Empieza por ORBEO1-.'}</p>
+      ${crear ? `
+        ${campo('esp', 'Nombre del espacio', 'Viajes con amigos', p.esp)}
+        ${campo('url', 'Dirección del script', 'https://script.google.com/macros/s/…/exec', p.url, { ayuda: 'Acaba en /exec. Está en Implementar › Gestionar implementaciones.' })}
+        ${campo('cod', 'Código de alta', 'ABCD-EFGH', p.cod, { ayuda: 'Sale en el registro del script al ejecutar «configurar».', mayus: true })}`
+      : `${campo('inv', 'Invitación', 'ORBEO1-…', p.inv, { area: true })}
+        <div class="o-inv-info" data-e>${p.info ? `<div class="o-fila"><div class="o-avs">${(p.info.personas || []).slice(0, 5).map(x => avatar(x)).join('')}</div><div><div class="o-t3">${esc((p.info.espacio && p.info.espacio.nombre) || p.espacio || 'Espacio')}</div><div class="o-nota">${(p.info.personas || []).length} personas · entras como ${p.info.rol === 'admin' ? 'administración' : p.info.rol === 'lector' ? 'solo lectura' : 'editor'}</div></div></div>` : ''}</div>`}
+      ${campo('nom', 'Tu nombre', 'Nombre y apellido', p.nom)}
+      <div class="o-campo" data-e><div class="o-etq">Tu color</div><div class="o-colores">${COLORES.map(c => `<button class="o-color t t-s${c === p.color ? ' o-on' : ''}" data-a="color" data-c="${c}" style="background:${c}"><span>${ic('check', 16, 2.2)}</span></button>`).join('')}</div></div>
+      <div class="o-error" id="c-err"></div>
+      <button class="o-pil t t-g" data-a="ok" data-e style="margin-top:22px">${crear ? 'Crear el espacio' : 'Unirme'}</button>
+      <button class="o-enlace t" data-a="ayuda" data-e style="margin:18px auto 0;display:block">¿Dónde está todo esto?</button>
+    </div>`;
+  },
+  alPintar(el, p) {
+    if (p.modo !== 'crear') {
+      const i = $('#f-inv', el);
+      i && i.addEventListener('input', () => PANT.conectar.verInv(el, p));
+      if (p.inv && !p.info) PANT.conectar.verInv(el, p);
+    }
+  },
+  async verInv(el, p) {
+    p.inv = $('#f-inv', el).value; const k = leerPaquete(p.inv);
+    if (k.error) return;
+    try {
+      const r = await api('invitacion-ver', { codigo: k.codigo }, { url: k.url, sinToken: true });
+      p.info = r; p.espacio = k.espacio;
+      const box = $('.o-inv-info', el);
+      box.innerHTML = `<div class="o-fila"><div class="o-avs">${(r.personas || []).slice(0, 5).map(x => avatar(x)).join('')}</div><div><div class="o-t3">${esc((r.espacio && r.espacio.nombre) || k.espacio || 'Espacio')}</div><div class="o-nota">${(r.personas || []).length} personas · entras como ${r.rol === 'admin' ? 'administración' : r.rol === 'lector' ? 'solo lectura' : 'editor'}</div></div></div>`;
+      animar(box, [{ opacity: 0, transform: 'translateY(10px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 520, easing: CURVA.muelle });
+      if (r.persona) { $('#f-nom', el).value = r.persona.nombre; }
+    } catch (e) { error(el, e.message); }
+  },
+  acciones: {
+    color: (b, e, p) => { p.color = b.dataset.c; $$('.o-color', b.parentNode).forEach(x => x.classList.toggle('o-on', x === b)); Anim.salto(b); },
+    ayuda: () => ayudaScript(),
+    ok: async (b, e, p, pa) => {
+      const el = pa.el, v = id => ($('#f-' + id, el) || {}).value || '';
+      const nom = v('nom').trim();
+      if (!nom) { Anim.no($('#f-nom', el).parentNode); return error(el, 'Escribe tu nombre.'); }
+      cargando(b, true);
+      try {
+        let url, codigo;
+        if (p.modo === 'crear') {
+          const u = urlScript(v('url')); if (u.error) throw ErrR('datos', u.error);
+          url = u.url; codigo = v('cod');
+          const h = await api('hola', {}, { url, sinToken: true });
+          if (!h.configurado) throw ErrR('config', 'El script todavía no está configurado. En el editor, ejecuta «configurar».');
+        } else {
+          const k = leerPaquete(v('inv')); if (k.error) throw ErrR('datos', k.error);
+          url = k.url; codigo = k.codigo;
+        }
+        const r = await api('unirse', { codigo, nombre: nom, color: p.color, espacio: p.modo === 'crear' ? { nombre: v('esp').trim() || 'Nuestros viajes' } : null }, { url, sinToken: true, ms: 60000 });
+        S.cfg = { url, token: r.token, persona: r.persona, rol: r.rol, sid: r.sid };
+        S.recs = {}; S.cola = {}; S.seq = 0; S.sid = r.sid;
+        await DB.set('cfg', S.cfg);
+        Nav.raiz('inicio');
+        await Sync.ya();
+        aviso(p.modo === 'crear' ? 'Espacio creado. Ya puedes crear el primer viaje.' : 'Ya estás dentro.');
+      } catch (er) { error(el, er.message); Anim.no(b); }
+      finally { cargando(b, false); }
+    }
+  }
+};
+function campo(id, etq, ph, val, o) {
+  o = o || {};
+  return `<label class="o-campo" data-e><span class="o-etq">${esc(etq)}</span>${o.area
+    ? `<textarea id="f-${id}" class="o-in o-area" placeholder="${esc(ph)}" rows="${o.filas || 3}" autocomplete="off" autocapitalize="off" spellcheck="false">${esc(val || '')}</textarea>`
+    : `<input id="f-${id}" class="o-in" type="${o.tipo || 'text'}" placeholder="${esc(ph)}" value="${esc(val || '')}" autocomplete="off" ${o.mayus ? 'autocapitalize="characters"' : o.tipo === 'url' ? 'autocapitalize="off"' : ''} ${o.extra || ''}>`}
+    ${o.ayuda ? `<span class="o-nota o-ayuda">${esc(o.ayuda)}</span>` : ''}</label>`;
+}
+function error(el, msg) {
+  const e = $('#c-err', el) || $('.o-error', el); if (!e) { aviso(msg); return; }
+  e.textContent = msg;
+  animar(e, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 360 });
+}
+function cargando(b, on) {
+  if (!b) return;
+  if (on) { b.dataset.txt = b.innerHTML; b.classList.add('o-cargando'); b.innerHTML = '<span class="o-giro"></span>'; b.disabled = true; }
+  else if (b.dataset.txt != null) { b.innerHTML = b.dataset.txt; b.classList.remove('o-cargando'); b.disabled = false; delete b.dataset.txt; }
+}
+function ayudaScript() {
+  Capa.hoja({
+    html: `<div class="o-hcab"><div class="o-t2" data-e>Cómo se conecta</div></div>
+    <ol class="o-pasos">
+      ${['Crea una hoja de Google vacía y abre Extensiones › Apps Script.', 'Pega el archivo Codigo.gs del paquete y guarda.', 'Elige «configurar» arriba y pulsa Ejecutar. Acepta los permisos. En el registro sale tu código de alta.', 'Implementar › Nueva implementación › Aplicación web. Ejecutar como: yo. Quién tiene acceso: cualquier usuario.', 'Copia la dirección que acaba en /exec y pégala aquí con el código.']
+        .map((t, i) => `<li data-e><span class="o-paso-n tn">${i + 1}</span><span>${esc(t)}</span></li>`).join('')}
+    </ol><p class="o-nota" data-e style="margin-top:14px">Para leer reservas y crear portadas con IA, añade tu clave de Gemini en el script: Configuración del proyecto › Propiedades del script › GEMINI_API_KEY.</p>`
+  });
+}
+
+/* ---------- Inicio: los viajes */
+PANT.inicio = {
+  render() {
+    const vs = viajes().map(v => Object.assign(v, { _e: estadoViaje(v) }));
+    const curso = vs.filter(v => v._e.e === 'curso'), fut = vs.filter(v => v._e.e === 'futuro'), pas = vs.filter(v => v._e.e === 'pasado').reverse();
+    const heroe = curso[0] || fut[0] || null;
+    const resto = curso.slice(1).concat(fut.filter(v => v !== heroe));
+    const me = dato('personas', yo());
+    const h = new Date().getHours();
+    const saludo = h < 6 ? 'Buenas noches' : h < 14 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches';
+    return `<div class="o-cont o-ini">
+      <div class="o-cab" data-e>
+        <div class="o-fila" style="gap:9px">${logo(30)}<span class="o-marca">orbeo</span></div>
+        <div class="o-fila" style="gap:8px">${puedoEditar() ? `<button class="o-bt o-borde t t-s" data-a="nuevo" aria-label="Nuevo viaje">${ic('plus')}</button>` : ''}
+        <button class="o-bt t t-s" data-a="ajustes" aria-label="Ajustes">${me ? avatar(me, 40) : ic('settings')}</button></div>
+      </div>
+      <div class="o-ini-sal" data-e><div class="o-nota">${saludo}${me ? ', ' + esc(me.nombre.split(' ')[0]) : ''}</div><h1 class="o-t1" data-e="titulo">${heroe ? (heroe._e.e === 'curso' ? 'De viaje' : 'Lo próximo') : 'Tus viajes'}</h1></div>
+      <div class="o-ini-rej">
+      ${heroe ? tarjetaHeroe(heroe) : vacioInicio()}
+      <div class="o-ini-lado">
+      ${resto.length ? `<div class="o-sec" data-e><span class="o-cap">Próximos</span><span class="o-nota tn">${resto.length}</span></div>
+        <div class="o-filas">${resto.map(filaViaje).join('')}</div>` : ''}
+      ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
+        <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
+      </div></div>
+    </div>`;
+  },
+  alEntrar(el) {
+    $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta, 1100));
+  },
+  alDeslizar(el) {
+    /* La foto protagonista se queda un poco atrás y gira apenas al deslizar */
+    const f = $('.o-heroe-foto', el); if (!f || reducido()) return;
+    const y = el.scrollTop;
+    f.style.transform = `translateY(${y * .18}px) scale(${1 + Math.min(y, 300) * .0004})`;
+    const c = $('.o-heroe', el); if (c) c.style.transform = `rotate(${clamp(y * -.006, -2, 0)}deg)`;
+  },
+  acciones: {
+    abrir: (b, e) => abrirViaje(b.dataset.id, b, e),
+    nuevo: () => editarViaje(null),
+    ajustes: () => Nav.ir('ajustes')
+  }
+};
+function vacioInicio() {
+  return `<div class="o-vacio-ini" data-e="heroe">
+    <div class="o-vacio-orbe">${logo(120)}</div>
+    <div class="o-t2" style="margin-top:22px">Vuestro primer viaje</div>
+    <p class="o-txt" style="margin-top:8px">Ponle nombre, destino y fechas. Después añadís las paradas de cada día entre todos.</p>
+    ${puedoEditar() ? `<button class="o-pil t t-g" data-a="nuevo" style="margin-top:22px">${ic('plus', 18, 2)}Crear un viaje</button>` : ''}
+  </div>`;
+}
+function tarjetaHeroe(v) {
+  const e = v._e, n = paradasDe(v.id).length, ni = lista('ideas', i => i.viaje === v.id).length;
+  const etiqueta = e.e === 'curso' ? `En curso · Día ${e.dia} de ${e.total}` : `Próximo · ${rango(v.desde, v.hasta)}`;
+  const grande = e.e === 'curso' ? [e.dia, 'día'] : [e.faltan, e.faltan === 1 ? 'día falta' : 'días faltan'];
+  const url = portadaUrl(v);
+  return `<button class="o-heroe t t-g" data-a="abrir" data-id="${v.id}" data-e="heroe">
+    <div class="o-heroe-foto" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : portadaVacia(v)}</div>
+    <div class="o-heroe-velo"></div>
+    <div class="o-heroe-arr"><span class="o-chip o-vido">${e.e === 'curso' ? '<span class="o-punto"></span>' : ''}${esc(etiqueta)}</span></div>
+    <div class="o-heroe-txt">
+      <div class="o-heroe-n">${esc(v.nombre)}</div>
+      <div class="o-heroe-l">${esc(v.lugar || v.ciudad || '')}</div>
+    </div>
+    <div class="o-heroe-dat o-vido">
+      <div class="o-dato"><span class="o-num tn" data-cuenta="${grande[0]}">${grande[0]}</span><span class="o-cap">${grande[1]}</span></div>
+      <div class="o-dato"><span class="o-num tn" data-cuenta="${n}">${n}</span><span class="o-cap">paradas</span></div>
+      <div class="o-dato"><span class="o-num tn" data-cuenta="${ni}">${ni}</span><span class="o-cap">ideas</span></div>
+      <div class="o-avs">${personasViaje(v).slice(0, 4).map(p => avatar(p, 30)).join('')}</div>
+    </div>
+  </button>`;
+}
+function portadaVacia(v) { return `<div class="o-port-vacia"><span>${esc((v.nombre || '?').slice(0, 1))}</span></div>`; }
+function filaViaje(v) {
+  const e = v._e, url = portadaUrl(v);
+  return `<button class="o-filav t" data-a="abrir" data-id="${v.id}" data-e>
+    <span class="o-filav-f" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : esc((v.nombre || '?')[0])}</span>
+    <span class="o-filav-t"><span class="o-t3">${esc(v.nombre)}</span><span class="o-nota">${esc(rango(v.desde, v.hasta))} · ${esc(v.ciudad || v.lugar || '')}</span></span>
+    <span class="o-filav-d"><span class="o-num tn">${e.e === 'curso' ? e.dia : e.faltan}</span><span class="o-cap">${e.e === 'curso' ? 'día' : 'días'}</span></span>
+  </button>`;
+}
+function tarjetaRecuerdo(v) {
+  const url = portadaUrl(v);
+  return `<button class="o-rec t" data-a="abrir" data-id="${v.id}" data-e="pop">
+    <span class="o-rec-f" style="${url ? `background-image:url('${url}')` : ''}"></span>
+    <span class="o-rec-t"><span>${esc(v.nombre)}</span><span class="o-nota">${esc(MESES[fecha(v.desde).getUTCMonth()])} ${fecha(v.desde).getUTCFullYear()}</span></span>
+  </button>`;
+}
+function abrirViaje(id, b, e) {
+  const foto = b && $('.o-heroe-foto,.o-filav-f,.o-rec-f', b);
+  const v = dato('viajes', id);
+  const x = e && e.clientX != null ? e.clientX : innerWidth / 2, y = e && e.clientY != null ? e.clientY : innerHeight / 2;
+  Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x, y }, vuela: foto && portadaUrl(v) ? { desde: foto, hacia: '.o-vcab-foto', imagen: portadaUrl(v) } : null });
+}
+
+/* ---------- Crear o editar un viaje (hoja) */
+function editarViaje(v) {
+  const nuevoV = !v;
+  const f = v ? JSON.parse(JSON.stringify(v)) : { nombre: '', ciudad: '', lugar: '', desde: sumaDias(enZona(TZ_CASA()).dia, 30), hasta: sumaDias(enZona(TZ_CASA()).dia, 36), tz: '', moneda: 'EUR', quienes: lista('personas').map(p => p.id) };
+  let sugT = null;
+  const vistaPortada = () => {
+    const u = f.portada ? urlMedio(f.portada) : '';
+    return `<div class="o-port-prev" style="${u ? `background-image:url('${u}')` : ''}">${u ? '' : `<span class="o-nota">${f.ciudad ? 'Buscando foto…' : 'Elige destino y saldrá una foto'}</span>`}</div>`;
+  };
+  const c = Capa.hoja({
+    clase: 'o-hoja-alta',
+    html: `<div class="o-hcab" data-e><button class="o-enlace t" data-a="cerrar">Cancelar</button><div class="o-t3">${nuevoV ? 'Nuevo viaje' : 'Editar viaje'}</div><button class="o-enlace t" data-a="guardar">${nuevoV ? 'Crear' : 'Guardar'}</button></div>
+      <div class="o-hoja-scroll">
+      <div class="o-port" data-e>${vistaPortada()}
+        <div class="o-port-ops">
+          <button class="o-chip o-vido t" data-a="pfoto">${ic('image', 16)}Foto del lugar</button>
+          <button class="o-chip o-vido t" data-a="pia">${ic('spark', 16)}Crear con IA</button>
+          <button class="o-chip o-vido t" data-a="ppropia">${ic('camera', 16)}Mi foto</button>
+        </div></div>
+      ${campo('vn', 'Nombre del viaje', 'Japón', f.nombre)}
+      <label class="o-campo" data-e><span class="o-etq">Destino</span><input id="f-vd" class="o-in" placeholder="Ciudad o región" value="${esc(f.ciudad || '')}" autocomplete="off"><div class="o-sugs" id="v-sugs"></div></label>
+      ${campo('vl', 'Ruta', 'Tokio, Hakone y Kioto', f.lugar)}
+      <div class="o-dos" data-e>${campo('vde', 'Desde', '', f.desde, { tipo: 'date' })}${campo('vha', 'Hasta', '', f.hasta, { tipo: 'date' })}</div>
+      <div class="o-campo" data-e><span class="o-etq">Hora del destino</span><div class="o-zona" id="v-zona">${zonaTxt(f.tz)}</div></div>
+      <div class="o-campo" data-e><span class="o-etq">Quién va</span><div class="o-quien">${lista('personas').map(p => `<button class="o-quien-p t t-s${f.quienes.indexOf(p.id) >= 0 ? ' o-on' : ''}" data-a="quien" data-id="${p.id}">${avatar(p, 44)}<span>${esc(p.nombre.split(' ')[0])}</span></button>`).join('')}</div></div>
+      <div class="o-error" id="c-err"></div>
+      ${!nuevoV && soyAdmin() ? `<button class="o-pil o-sec o-pmal-t t" data-a="borrar" data-e style="margin-top:26px">${ic('trash', 18)}Borrar el viaje</button>` : ''}
+      </div>`,
+    alAbrir: (h) => {
+      const i = $('#f-vd', h);
+      i.addEventListener('input', () => { clearTimeout(sugT); sugT = setTimeout(async () => pintarSugs(h, await Lugar.buscar(i.value, { ciudades: true })), 260); });
+    },
+    acciones: {
+      sug: async (b) => {
+        const s = await Lugar.completar(JSON.parse(b.dataset.j));
+        const h = c.hoja; $('#f-vd', h).value = s.n; $('#v-sugs', h).innerHTML = '';
+        f.ciudad = s.n; f.lat = s.lat; f.lng = s.lng; f.pais = s.pais || f.pais;
+        const cerca = s.tz ? { tz: s.tz } : (s.lat != null ? ciudadCercana(s.lat, s.lng) : null);
+        f.tz = (cerca && cerca.tz) || f.tz; f.moneda = monedaDe(f.pais || (cerca && cerca.pais));
+        if (!$('#f-vn', h).value) $('#f-vn', h).value = s.n;
+        $('#v-zona', h).innerHTML = zonaTxt(f.tz); animar($('#v-zona', h), [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
+        if (!f.portada) PANT_portadaLugar(f, s, () => { $('.o-port-prev', h).outerHTML = vistaPortada(); animar($('.o-port-prev', h), [{ opacity: 0, transform: 'scale(1.06)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: CURVA.heroe }); });
+      },
+      pfoto: () => { if (!f.ciudad) return aviso('Elige primero el destino.'); f.portada = null; PANT_portadaLugar(f, { n: f.ciudad, lat: f.lat, lng: f.lng, pid: f.pid }, () => { $('.o-port-prev', c.hoja).outerHTML = vistaPortada(); animar($('.o-port-prev', c.hoja), [{ opacity: 0 }, { opacity: 1 }], { duration: 500 }); }); },
+      pia: async (b) => {
+        if (!Sync.activo()) return aviso('Crear portadas con IA necesita el script con tu clave de Gemini.');
+        cargando(b, true);
+        try {
+          const r = await api('portada', { destino: f.ciudad || $('#f-vd', c.hoja).value, nombre: $('#f-vn', c.hoja).value, ruta: $('#f-vl', c.hoja).value }, { ms: 90000 });
+          const bin = atob(r.data), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+          const blob = new Blob([u], { type: r.tipo || 'image/png' });
+          const id = 'm' + uid(); await DB.set('med:' + id, blob); S.imgs[id] = URL.createObjectURL(blob);
+          f.portada = { id, fid: r.fid };
+          $('.o-port-prev', c.hoja).outerHTML = vistaPortada();
+          Anim.circulo($('.o-port-prev', c.hoja), 180, 110, 900);
+        } catch (e) { aviso(e.message); } finally { cargando(b, false); }
+      },
+      ppropia: async () => {
+        const [file] = await elegirArchivos('image/*'); if (!file) return;
+        const blob = await reducir(file, 1800, .86);
+        const id = await Subidas.guardar(blob, 'portada.jpg');
+        f.portada = { id };
+        $('.o-port-prev', c.hoja).outerHTML = vistaPortada();
+        animar($('.o-port-prev', c.hoja), [{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 600, easing: CURVA.muelle });
+      },
+      quien: (b) => { const id = b.dataset.id, i = f.quienes.indexOf(id); if (i >= 0) f.quienes.splice(i, 1); else f.quienes.push(id); b.classList.toggle('o-on', i < 0); Anim.salto($('.o-av', b)); },
+      borrar: async () => {
+        if (!(await Capa.confirmar({ titulo: '¿Borrar «' + v.nombre + '»?', texto: 'Se borra para todo el grupo, con sus paradas, ideas y documentos.', si: 'Borrar', peligro: true }))) return;
+        borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje borrado');
+      },
+      guardar: () => {
+        const h = c.hoja, val = id => $('#f-' + id, h).value.trim();
+        f.nombre = val('vn'); f.lugar = val('vl'); f.desde = val('vde'); f.hasta = val('vha');
+        if (!f.ciudad) f.ciudad = val('vd');
+        if (!f.nombre) { Anim.no($('#f-vn', h).parentNode); return error(h, 'Ponle un nombre al viaje.'); }
+        if (!f.desde) { Anim.no($('#f-vde', h).parentNode); return error(h, 'Falta la fecha de salida.'); }
+        if (!f.hasta || f.hasta < f.desde) f.hasta = f.desde;
+        if (!f.tz) { const cc = buscarCiudades(f.ciudad)[0]; f.tz = cc ? cc.tz : TZ_CASA(); if (cc) { f.lat = cc.lat; f.lng = cc.lng; f.pais = cc.pais; f.moneda = monedaDe(cc.pais); } }
+        const campos = { nombre: f.nombre, lugar: f.lugar, ciudad: f.ciudad, desde: f.desde, hasta: f.hasta, tz: f.tz, moneda: f.moneda || 'EUR', pais: f.pais || '', lat: f.lat ?? null, lng: f.lng ?? null, quienes: f.quienes, portada: f.portada || null };
+        let id = v && v.id;
+        if (nuevoV) { id = nuevo('viajes', campos); actividad(id, 'ha creado el viaje'); }
+        else poner('viajes', id, campos);
+        c.cerrar();
+        if (nuevoV) setTimeout(() => Nav.ir('viaje', { id, tab: 'plan' }, { circulo: { x: innerWidth / 2, y: innerHeight * .4 } }), 260);
+      }
+    }
+  });
+  function pintarSugs(h, ls) {
+    const box = $('#v-sugs', h);
+    box.innerHTML = ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota">${esc(s.sub || '')}</span></span></button>`).join('');
+    $$('.o-sug', box).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 40 }));
+  }
+}
+function zonaTxt(tz) {
+  if (!tz) return '<span class="o-nota">Se pone sola al elegir el destino</span>';
+  const casa = TZ_CASA();
+  return `<span>${ic('clock', 18)}${esc(nombreZona(tz))} <b class="tn">${enZona(tz).hora}</b></span><span class="o-nota">${tz === casa || desfase(tz) === desfase(casa) ? 'La misma hora que tú' : difHoras(tz, casa) + ' respecto a ' + esc(nombreZona(casa))}</span>`;
+}
+/* Portada por defecto: la foto real del lugar (Google si hay clave; si no, Wikipedia) */
+async function PANT_portadaLugar(f, s, listo) {
+  try {
+    const u = await Lugar.foto(s);
+    if (u) { f.portada = { url: u }; listo(); }
+  } catch (e) { anotar('portada', e); }
+}

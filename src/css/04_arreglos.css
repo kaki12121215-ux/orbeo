@@ -1,0 +1,17 @@
+/* ---------- Ajustes tras revisar las capturas ---------- */
+.o-pil.o-vido{background:linear-gradient(140deg,rgba(255,255,255,.26),rgba(255,255,255,.08));color:#fff}
+.o-ahora .o-par-h{font-size:19px;font-weight:500;padding-top:32px}
+.o-pd-b .o-pil{white-space:nowrap}
+.o-pd-b .o-pd-hecho{flex:0 0 auto;width:auto;padding:0 20px}
+.o-port{position:relative;border-radius:28px;overflow:hidden;margin-top:2px}
+.o-port-prev{height:200px;background:var(--sup) center/cover;display:flex;align-items:center;justify-content:center;border-radius:28px}
+.o-port::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 50%,rgba(0,0,0,.45));pointer-events:none;border-radius:28px}
+.o-port-ops{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px;flex-wrap:wrap;z-index:1}
+.o-port-ops .o-chip{height:34px;font-size:12.5px;padding:0 12px}
+.o-quien{display:flex;gap:14px;flex-wrap:wrap}
+.o-quien-p{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;color:var(--gris);transition:opacity .3s,scale .34s var(--muelle)}
+.o-quien-p:not(.o-on){opacity:.4}
+.o-quien-p:not(.o-on) .o-av{filter:grayscale(1)}
+.o-quien-p.o-on span:last-child{color:var(--tinta)}
+.o-logo .o-lg-orbe{filter:drop-shadow(0 2px 3px rgba(40,30,20,.15))}
+@media (min-width:960px){.o-pviaje:has(.o-esc) .o-tabs{left:280px}}
