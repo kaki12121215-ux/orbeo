@@ -1,4 +1,4 @@
-/* ORBEO · estilos · versión 1.0.11 */
+/* ORBEO · estilos · versión 1.0.12 */
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 
@@ -236,8 +236,6 @@ html[data-tema="oscuro"] .o-aviso .o-punto{background:#B08455;box-shadow:none}
 
 /* ---------- Logo ---------- */
 .o-logo{display:block;flex:none;overflow:visible}
-html[data-tema="oscuro"] .o-logo{--logo-a:#2C2A27;--logo-b:#151413;--logo-borde:rgba(243,238,231,.16)}
-.o-logo-bl{--tinta:#F3EEE7;--logo-a:rgba(255,255,255,.5);--logo-b:rgba(255,255,255,.12);--logo-borde:rgba(255,255,255,.4)}
 .o-logo-gira .o-lg-b{animation:o-latido 1.4s var(--entrar) infinite;transform-box:fill-box;transform-origin:center}
 .o-logo-gira .o-lg-b:nth-of-type(2){animation-delay:.12s}.o-logo-gira .o-lg-b:nth-of-type(3){animation-delay:.24s}
 @keyframes o-latido{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:none}}
@@ -644,7 +642,7 @@ html[data-tema="oscuro"] .o-reserva-ic{background:rgba(0,0,0,.08);color:#8A6A43}
 .o-quien-p:not(.o-on){opacity:.4}
 .o-quien-p:not(.o-on) .o-av{filter:grayscale(1)}
 .o-quien-p.o-on span:last-child{color:var(--tinta)}
-.o-logo .o-lg-orbe{filter:drop-shadow(0 2px 3px rgba(40,30,20,.15))}
+.o-logo{border-radius:22.5%;box-shadow:0 1px 2px rgba(20,16,12,.12),0 6px 16px -6px rgba(20,16,12,.22)}
 @media (min-width:960px){.o-pviaje:has(.o-esc) .o-tabs{left:280px}}
 .o-pil.o-demo-b{background:var(--acento);color:var(--acento-t);border-color:transparent;gap:8px}
 .o-pil.o-demo-b svg{fill:currentColor;stroke:none}

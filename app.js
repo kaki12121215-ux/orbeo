@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.11 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.12 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.11';
+const VERSION = '1.0.12';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -757,19 +757,18 @@ const ICONOS = {
 };
 function ic(n, s, w) { return `<svg class="ic" width="${s || 22}" height="${s || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.7}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n] || ''}</svg>`; }
 
-/* El logo: un planeta de porcelana con cinco paradas en el borde y la cuarta encendida */
+/* El logo: un planeta claro con el mapa que asoma por la izquierda y una ruta coral por su borde con tres paradas */
 function logo(s, o) {
   o = o || {};
-  const R = 30, cx = 50, cy = 54, ang = [-150, -118, -90, -62, -30];
-  const pts = ang.map(a => [cx + R * Math.cos(a * Math.PI / 180), cy + R * Math.sin(a * Math.PI / 180)]);
+  const k = 100 / 1024, cx = -193 * k, cy = 942 * k, R = 1020 * k, P = a => [cx + R * Math.cos(a * Math.PI / 180), cy + R * Math.sin(a * Math.PI / 180)];
+  const p0 = P(-110), p1 = P(10), pts = [-52.5, -28.5, -4.5].map(P), f = n => n.toFixed(2);
   return `<svg class="o-logo${o.clase ? ' ' + o.clase : ''}" width="${s}" height="${s}" viewBox="0 0 100 100" aria-label="Orbeo">
-  <defs><radialGradient id="lg-p" cx=".38" cy=".3" r=".8"><stop offset="0" stop-color="var(--logo-a,#FFFFFF)"/><stop offset="1" stop-color="var(--logo-b,#E4DDD2)"/></radialGradient>
-  <radialGradient id="lg-g"><stop offset="0" stop-color="var(--acento)" stop-opacity=".7"/><stop offset="1" stop-color="var(--acento)" stop-opacity="0"/></radialGradient></defs>
-  <circle class="o-lg-orbe" cx="${cx}" cy="${cy}" r="${R}" fill="url(#lg-p)" stroke="var(--logo-borde,rgba(21,20,19,.14))" stroke-width="1"/>
-  <path class="o-lg-ruta" d="M${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)} A${R} ${R} 0 0 1 ${pts[4][0].toFixed(2)} ${pts[4][1].toFixed(2)}" fill="none" stroke="var(--tinta)" stroke-width="1.6" stroke-linecap="round" opacity=".55" pathLength="1"/>
-  ${pts.map((p, i) => i === 3
-    ? `<g class="o-lg-luz"><circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="11" fill="url(#lg-g)"/><circle class="o-lg-b" cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="5.2" fill="var(--acento)"/></g>`
-    : `<circle class="o-lg-b" cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="4.4" fill="var(--tinta)"/>`).join('')}
+  <defs><linearGradient id="lg-f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6DFD4"/><stop offset="1" stop-color="#DAD1C4"/></linearGradient>
+  <clipPath id="lg-c"><rect width="100" height="100" rx="22.5"/></clipPath></defs>
+  <g clip-path="url(#lg-c)"><rect class="o-lg-fondo" width="100" height="100" fill="url(#lg-f)"/>
+  <image class="o-lg-orbe" href="icons/logo-planeta.webp" width="100" height="100"/>
+  <path class="o-lg-ruta" d="M${f(p0[0])} ${f(p0[1])} A${f(R)} ${f(R)} 0 0 1 ${f(p1[0])} ${f(p1[1])}" fill="none" stroke="#D9775A" stroke-width="2.73" stroke-linecap="round" pathLength="1"/>
+  ${pts.map(p => `<circle class="o-lg-b" cx="${f(p[0])}" cy="${f(p[1])}" r="7.62" fill="#D9775A"/>`).join('')}</g>
   </svg>`;
 }
 
@@ -4079,13 +4078,11 @@ function splash() {
   el.innerHTML = `<div class="o-splash-c">${logo(132, { clase: 'o-logo-sp' })}<div class="o-splash-m">${'orbeo'.split('').map(l => `<span>${l}</span>`).join('')}</div></div>`;
   document.body.appendChild(el);
   if (reducido()) return { fuera: () => animar(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 150 }).then(() => el.remove()) };
-  const orbe = $('.o-lg-orbe', el), ruta = $('.o-lg-ruta', el), bs = $$('.o-lg-b', el), luz = $('.o-lg-luz', el), ls = $$('.o-splash-m span', el);
-  animar(orbe, [{ opacity: 0, transform: 'scale(.7)' }, { opacity: 1, transform: 'none' }], { duration: 640, easing: CURVA.heroe, siempre: true });
-  orbe.style.transformOrigin = '50px 54px'; orbe.style.transformBox = 'view-box';
+  const orbe = $('.o-lg-orbe', el), ruta = $('.o-lg-ruta', el), bs = $$('.o-lg-b', el), ls = $$('.o-splash-m span', el);
+  animar($('svg', el), [{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: CURVA.heroe, siempre: true });
+  animar(orbe, [{ opacity: 0, transform: 'translate(-22px,10px)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 60, easing: CURVA.heroe, siempre: true });
   animar(ruta, [{ strokeDasharray: '1', strokeDashoffset: 1 }, { strokeDasharray: '1', strokeDashoffset: 0 }], { duration: 700, delay: 180, easing: CURVA.entrar, siempre: true });
-  bs.forEach((b, i) => { b.style.transformBox = 'fill-box'; b.style.transformOrigin = 'center'; animar(b, [{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 220 + i * 110, easing: CURVA.muelle, siempre: true }); });
-  luz.style.transformBox = 'fill-box'; luz.style.transformOrigin = 'center';
-  animar($('circle', luz), [{ opacity: 0, transform: 'scale(.3)' }, { opacity: 1, transform: 'scale(1.25)', offset: .7 }, { opacity: 1, transform: 'none' }], { duration: 700, delay: 640, easing: 'ease-out', siempre: true });
+  bs.forEach((b, i) => { b.style.transformBox = 'fill-box'; b.style.transformOrigin = 'center'; animar(b, [{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 430 + i * 140, easing: CURVA.muelle, siempre: true }); });
   ls.forEach((s, i) => animar(s, [{ opacity: 0, transform: 'translateY(70%)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 520 + i * 50, easing: CURVA.heroe, siempre: true }));
   const listo = espera(1150);
   return {

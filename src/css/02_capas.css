@@ -125,8 +125,6 @@ html[data-tema="oscuro"] .o-aviso .o-punto{background:#B08455;box-shadow:none}
 
 /* ---------- Logo ---------- */
 .o-logo{display:block;flex:none;overflow:visible}
-html[data-tema="oscuro"] .o-logo{--logo-a:#2C2A27;--logo-b:#151413;--logo-borde:rgba(243,238,231,.16)}
-.o-logo-bl{--tinta:#F3EEE7;--logo-a:rgba(255,255,255,.5);--logo-b:rgba(255,255,255,.12);--logo-borde:rgba(255,255,255,.4)}
 .o-logo-gira .o-lg-b{animation:o-latido 1.4s var(--entrar) infinite;transform-box:fill-box;transform-origin:center}
 .o-logo-gira .o-lg-b:nth-of-type(2){animation-delay:.12s}.o-logo-gira .o-lg-b:nth-of-type(3){animation-delay:.24s}
 @keyframes o-latido{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:none}}

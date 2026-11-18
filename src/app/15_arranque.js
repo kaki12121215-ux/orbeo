@@ -4,13 +4,11 @@ function splash() {
   el.innerHTML = `<div class="o-splash-c">${logo(132, { clase: 'o-logo-sp' })}<div class="o-splash-m">${'orbeo'.split('').map(l => `<span>${l}</span>`).join('')}</div></div>`;
   document.body.appendChild(el);
   if (reducido()) return { fuera: () => animar(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 150 }).then(() => el.remove()) };
-  const orbe = $('.o-lg-orbe', el), ruta = $('.o-lg-ruta', el), bs = $$('.o-lg-b', el), luz = $('.o-lg-luz', el), ls = $$('.o-splash-m span', el);
-  animar(orbe, [{ opacity: 0, transform: 'scale(.7)' }, { opacity: 1, transform: 'none' }], { duration: 640, easing: CURVA.heroe, siempre: true });
-  orbe.style.transformOrigin = '50px 54px'; orbe.style.transformBox = 'view-box';
+  const orbe = $('.o-lg-orbe', el), ruta = $('.o-lg-ruta', el), bs = $$('.o-lg-b', el), ls = $$('.o-splash-m span', el);
+  animar($('svg', el), [{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: CURVA.heroe, siempre: true });
+  animar(orbe, [{ opacity: 0, transform: 'translate(-22px,10px)' }, { opacity: 1, transform: 'none' }], { duration: 760, delay: 60, easing: CURVA.heroe, siempre: true });
   animar(ruta, [{ strokeDasharray: '1', strokeDashoffset: 1 }, { strokeDasharray: '1', strokeDashoffset: 0 }], { duration: 700, delay: 180, easing: CURVA.entrar, siempre: true });
-  bs.forEach((b, i) => { b.style.transformBox = 'fill-box'; b.style.transformOrigin = 'center'; animar(b, [{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 220 + i * 110, easing: CURVA.muelle, siempre: true }); });
-  luz.style.transformBox = 'fill-box'; luz.style.transformOrigin = 'center';
-  animar($('circle', luz), [{ opacity: 0, transform: 'scale(.3)' }, { opacity: 1, transform: 'scale(1.25)', offset: .7 }, { opacity: 1, transform: 'none' }], { duration: 700, delay: 640, easing: 'ease-out', siempre: true });
+  bs.forEach((b, i) => { b.style.transformBox = 'fill-box'; b.style.transformOrigin = 'center'; animar(b, [{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 430 + i * 140, easing: CURVA.muelle, siempre: true }); });
   ls.forEach((s, i) => animar(s, [{ opacity: 0, transform: 'translateY(70%)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 520 + i * 50, easing: CURVA.heroe, siempre: true }));
   const listo = espera(1150);
   return {

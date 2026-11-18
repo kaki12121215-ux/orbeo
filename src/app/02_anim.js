@@ -248,19 +248,18 @@ const ICONOS = {
 };
 function ic(n, s, w) { return `<svg class="ic" width="${s || 22}" height="${s || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.7}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n] || ''}</svg>`; }
 
-/* El logo: un planeta de porcelana con cinco paradas en el borde y la cuarta encendida */
+/* El logo: un planeta claro con el mapa que asoma por la izquierda y una ruta coral por su borde con tres paradas */
 function logo(s, o) {
   o = o || {};
-  const R = 30, cx = 50, cy = 54, ang = [-150, -118, -90, -62, -30];
-  const pts = ang.map(a => [cx + R * Math.cos(a * Math.PI / 180), cy + R * Math.sin(a * Math.PI / 180)]);
+  const k = 100 / 1024, cx = -193 * k, cy = 942 * k, R = 1020 * k, P = a => [cx + R * Math.cos(a * Math.PI / 180), cy + R * Math.sin(a * Math.PI / 180)];
+  const p0 = P(-110), p1 = P(10), pts = [-52.5, -28.5, -4.5].map(P), f = n => n.toFixed(2);
   return `<svg class="o-logo${o.clase ? ' ' + o.clase : ''}" width="${s}" height="${s}" viewBox="0 0 100 100" aria-label="Orbeo">
-  <defs><radialGradient id="lg-p" cx=".38" cy=".3" r=".8"><stop offset="0" stop-color="var(--logo-a,#FFFFFF)"/><stop offset="1" stop-color="var(--logo-b,#E4DDD2)"/></radialGradient>
-  <radialGradient id="lg-g"><stop offset="0" stop-color="var(--acento)" stop-opacity=".7"/><stop offset="1" stop-color="var(--acento)" stop-opacity="0"/></radialGradient></defs>
-  <circle class="o-lg-orbe" cx="${cx}" cy="${cy}" r="${R}" fill="url(#lg-p)" stroke="var(--logo-borde,rgba(21,20,19,.14))" stroke-width="1"/>
-  <path class="o-lg-ruta" d="M${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)} A${R} ${R} 0 0 1 ${pts[4][0].toFixed(2)} ${pts[4][1].toFixed(2)}" fill="none" stroke="var(--tinta)" stroke-width="1.6" stroke-linecap="round" opacity=".55" pathLength="1"/>
-  ${pts.map((p, i) => i === 3
-    ? `<g class="o-lg-luz"><circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="11" fill="url(#lg-g)"/><circle class="o-lg-b" cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="5.2" fill="var(--acento)"/></g>`
-    : `<circle class="o-lg-b" cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="4.4" fill="var(--tinta)"/>`).join('')}
+  <defs><linearGradient id="lg-f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6DFD4"/><stop offset="1" stop-color="#DAD1C4"/></linearGradient>
+  <clipPath id="lg-c"><rect width="100" height="100" rx="22.5"/></clipPath></defs>
+  <g clip-path="url(#lg-c)"><rect class="o-lg-fondo" width="100" height="100" fill="url(#lg-f)"/>
+  <image class="o-lg-orbe" href="icons/logo-planeta.webp" width="100" height="100"/>
+  <path class="o-lg-ruta" d="M${f(p0[0])} ${f(p0[1])} A${f(R)} ${f(R)} 0 0 1 ${f(p1[0])} ${f(p1[1])}" fill="none" stroke="#D9775A" stroke-width="2.73" stroke-linecap="round" pathLength="1"/>
+  ${pts.map(p => `<circle class="o-lg-b" cx="${f(p[0])}" cy="${f(p[1])}" r="7.62" fill="#D9775A"/>`).join('')}</g>
   </svg>`;
 }
 

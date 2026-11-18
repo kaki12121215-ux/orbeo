@@ -1,9 +1,9 @@
 /* ORBEO · service worker: abre sin conexión y recibe versiones nuevas.
    No toca las llamadas a Google (script, mapas) ni al cambio de moneda: esas las guarda la app. */
-const VERSION = 'orbeo-1.0.11';
+const VERSION = 'orbeo-1.0.12';
 const ARCHIVOS = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest',
   'fonts/inter-latin.woff2', 'fonts/inter-latin-ext.woff2',
-  'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/favicon-32.png',
+  'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/favicon-32.png', 'icons/logo-planeta.webp',
   'img/demo/viajera.jpg'];
 self.addEventListener('install', e => e.waitUntil(caches.open(VERSION)
   .then(c => Promise.all(ARCHIVOS.map(a => fetch(a, { cache: 'no-cache' }).then(r => r.ok ? c.put(a, r) : null).catch(() => null))))

@@ -13,7 +13,7 @@
 .o-quien-p:not(.o-on){opacity:.4}
 .o-quien-p:not(.o-on) .o-av{filter:grayscale(1)}
 .o-quien-p.o-on span:last-child{color:var(--tinta)}
-.o-logo .o-lg-orbe{filter:drop-shadow(0 2px 3px rgba(40,30,20,.15))}
+.o-logo{border-radius:22.5%;box-shadow:0 1px 2px rgba(20,16,12,.12),0 6px 16px -6px rgba(20,16,12,.22)}
 @media (min-width:960px){.o-pviaje:has(.o-esc) .o-tabs{left:280px}}
 .o-pil.o-demo-b{background:var(--acento);color:var(--acento-t);border-color:transparent;gap:8px}
 .o-pil.o-demo-b svg{fill:currentColor;stroke:none}
