@@ -184,6 +184,8 @@ function editarParada(x, o) {
   });
   function pintar(h, ls) {
     const box = $('#p-sugs', h);
+    const q = ($('#f-pl', h) || {}).value || '';
+    if (!ls.length) { box.innerHTML = q.trim().length >= 2 ? `<div class="o-sug-nada o-nota">No encuentro «${esc(q.trim())}». Prueba con el nombre y la ciudad.</div>` : ''; return; }
     box.innerHTML = ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota o-1l">${esc(s.sub || '')}</span></span></button>`).join('');
     $$('.o-sug', box).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 40 }));
   }

@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.5 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.6 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.5';
+const VERSION = '1.0.6';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -402,10 +402,16 @@ async function bajarArchivo(fid) {
 
 /* Medios (fotos, vídeos, archivos de documentos): «m» es { id, fid, demo, url } */
 const bajando = {};
+/* Las fotos originales de Wikimedia pueden pesar 20 MB: el iPhone las deja a medias. Se piden a 1280 px */
+function fotoLigera(u) {
+  const x = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/(commons|[a-z]{2,3})\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+)$/.exec(u || '');
+  if (!x || /\.svg$/i.test(x[4])) return u;
+  return `https://upload.wikimedia.org/wikipedia/${x[1]}/thumb/${x[2]}/${x[3]}/${x[4]}/1280px-${x[4]}${/\.tiff?$/i.test(x[4]) ? '.jpg' : ''}`;
+}
 function urlMedio(m) {
   if (!m) return '';
   if (m.demo) return 'img/demo/' + m.demo + '.jpg';
-  if (m.url) return m.url;
+  if (m.url) return fotoLigera(m.url);
   const k = m.mid || m.id || m.fid;
   if (S.imgs[k]) return S.imgs[k];
   if (!bajando[k]) {
@@ -2367,6 +2373,8 @@ function editarParada(x, o) {
   });
   function pintar(h, ls) {
     const box = $('#p-sugs', h);
+    const q = ($('#f-pl', h) || {}).value || '';
+    if (!ls.length) { box.innerHTML = q.trim().length >= 2 ? `<div class="o-sug-nada o-nota">No encuentro «${esc(q.trim())}». Prueba con el nombre y la ciudad.</div>` : ''; return; }
     box.innerHTML = ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota o-1l">${esc(s.sub || '')}</span></span></button>`).join('');
     $$('.o-sug', box).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 40 }));
   }
@@ -2438,16 +2446,19 @@ const Lugar = {
     const loc = o.ciudades ? buscarCiudades(q).map(c => ({ n: c.n, sub: nombrePais(c.pais), lat: c.lat, lng: c.lng, tz: c.tz, pais: c.pais })) : [];
     let red = [];
     try {
-      if (claveMaps()) {
-        await GM.cargar();
+      if (claveMaps() && !this.gmMal) {
+        await Promise.race([GM.cargar(), new Promise((_, no) => setTimeout(() => no(new Error('Google no carga')), 6000))]);
         const { AutocompleteSuggestion, AutocompleteSessionToken } = await google.maps.importLibrary('places');
         this.token = this.token || new AutocompleteSessionToken();
         const pet = { input: q, sessionToken: this.token, language: 'es' };
         if (o.cerca && o.cerca.lat != null) pet.locationBias = { center: { lat: o.cerca.lat, lng: o.cerca.lng }, radius: 50000 };
         if (o.ciudades) pet.includedPrimaryTypes = ['(regions)'];
-        const r = await AutocompleteSuggestion.fetchAutocompleteSuggestions(pet);
+        const r = await Promise.race([AutocompleteSuggestion.fetchAutocompleteSuggestions(pet), new Promise((_, no) => setTimeout(() => no(new Error('Google no responde')), 6000))]);
         red = r.suggestions.filter(s => s.placePrediction).slice(0, 6).map(s => ({ n: s.placePrediction.mainText ? s.placePrediction.mainText.text : s.placePrediction.text.text, sub: s.placePrediction.secondaryText ? s.placePrediction.secondaryText.text : '', pid: s.placePrediction.placeId }));
-      } else {
+      }
+    } catch (e) { anotar('buscar', e); this.gmMal = true; setTimeout(() => { this.gmMal = false; }, 60000); }
+    try {
+      if (!red.length) {
         const bias = o.cerca && o.cerca.lat != null ? `&lat=${o.cerca.lat}&lon=${o.cerca.lng}` : '';
         const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6${bias}${o.ciudades ? '&osm_tag=place' : ''}`);
         const j = await r.json();
@@ -2480,7 +2491,10 @@ const Lugar = {
   async foto(s) {
     if (s.fotoG) return s.fotoG;
     if (s.pid && claveMaps()) { const c = await this.completar(Object.assign({}, s, { lat: null })); if (c.fotoG) return c.fotoG; }
-    return this.fotoWiki(s.n);
+    /* Sin ficha de Google: Wikipedia por el nombre y, si no, por la ciudad */
+    const u = await this.fotoWiki(s.n); if (u) return u;
+    for (const t of String(s.sub || '').split(',').map(x => x.trim()).filter(x => x && !/\d/.test(x)).reverse().slice(1, 3).reverse()) { const v = await this.fotoWiki(t); if (v) return v; }
+    return '';
   },
   /* Wikipedia: la foto principal del artículo; si es un mapa o una bandera (países), la primera foto de verdad */
   async fotoWiki(n) {
@@ -2492,7 +2506,7 @@ const Lugar = {
         const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${t}?redirect=true`);
         if (!r.ok) continue;
         const j = await r.json();
-        const u = (j.originalimage && j.originalimage.width >= 700 ? j.originalimage.source : null) || (j.thumbnail && j.thumbnail.source && j.thumbnail.source.replace(/\/\d+px-/, '/1280px-'));
+        const u = (j.originalimage && j.originalimage.width >= 700 ? fotoLigera(j.originalimage.source) : null) || (j.thumbnail && j.thumbnail.source && j.thumbnail.source.replace(/\/\d+px-/, '/1280px-'));
         if (u && !/\.svg/i.test(u) && !MALA.test(decodeURIComponent(u.split('/').pop()))) return u;
         const r2 = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent((j.titles && j.titles.canonical) || nombre.replace(/ /g, '_'))}`);
         if (!r2.ok) continue;

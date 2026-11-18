@@ -121,10 +121,16 @@ async function bajarArchivo(fid) {
 
 /* Medios (fotos, vídeos, archivos de documentos): «m» es { id, fid, demo, url } */
 const bajando = {};
+/* Las fotos originales de Wikimedia pueden pesar 20 MB: el iPhone las deja a medias. Se piden a 1280 px */
+function fotoLigera(u) {
+  const x = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/(commons|[a-z]{2,3})\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+)$/.exec(u || '');
+  if (!x || /\.svg$/i.test(x[4])) return u;
+  return `https://upload.wikimedia.org/wikipedia/${x[1]}/thumb/${x[2]}/${x[3]}/${x[4]}/1280px-${x[4]}${/\.tiff?$/i.test(x[4]) ? '.jpg' : ''}`;
+}
 function urlMedio(m) {
   if (!m) return '';
   if (m.demo) return 'img/demo/' + m.demo + '.jpg';
-  if (m.url) return m.url;
+  if (m.url) return fotoLigera(m.url);
   const k = m.mid || m.id || m.fid;
   if (S.imgs[k]) return S.imgs[k];
   if (!bajando[k]) {

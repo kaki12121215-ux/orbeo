@@ -132,3 +132,4 @@ html[data-tema="oscuro"] .o-cal-ev{background:color-mix(in srgb,var(--cc) 30%,va
 .o-imp-i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--sup);color:var(--acento);flex:none}
 .o-imp-p{margin-top:16px}
 .o-imp-p .o-barra{margin-top:10px}
+.o-sug-nada{padding:12px 4px}

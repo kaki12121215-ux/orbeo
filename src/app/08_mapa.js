@@ -40,16 +40,19 @@ const Lugar = {
     const loc = o.ciudades ? buscarCiudades(q).map(c => ({ n: c.n, sub: nombrePais(c.pais), lat: c.lat, lng: c.lng, tz: c.tz, pais: c.pais })) : [];
     let red = [];
     try {
-      if (claveMaps()) {
-        await GM.cargar();
+      if (claveMaps() && !this.gmMal) {
+        await Promise.race([GM.cargar(), new Promise((_, no) => setTimeout(() => no(new Error('Google no carga')), 6000))]);
         const { AutocompleteSuggestion, AutocompleteSessionToken } = await google.maps.importLibrary('places');
         this.token = this.token || new AutocompleteSessionToken();
         const pet = { input: q, sessionToken: this.token, language: 'es' };
         if (o.cerca && o.cerca.lat != null) pet.locationBias = { center: { lat: o.cerca.lat, lng: o.cerca.lng }, radius: 50000 };
         if (o.ciudades) pet.includedPrimaryTypes = ['(regions)'];
-        const r = await AutocompleteSuggestion.fetchAutocompleteSuggestions(pet);
+        const r = await Promise.race([AutocompleteSuggestion.fetchAutocompleteSuggestions(pet), new Promise((_, no) => setTimeout(() => no(new Error('Google no responde')), 6000))]);
         red = r.suggestions.filter(s => s.placePrediction).slice(0, 6).map(s => ({ n: s.placePrediction.mainText ? s.placePrediction.mainText.text : s.placePrediction.text.text, sub: s.placePrediction.secondaryText ? s.placePrediction.secondaryText.text : '', pid: s.placePrediction.placeId }));
-      } else {
+      }
+    } catch (e) { anotar('buscar', e); this.gmMal = true; setTimeout(() => { this.gmMal = false; }, 60000); }
+    try {
+      if (!red.length) {
         const bias = o.cerca && o.cerca.lat != null ? `&lat=${o.cerca.lat}&lon=${o.cerca.lng}` : '';
         const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6${bias}${o.ciudades ? '&osm_tag=place' : ''}`);
         const j = await r.json();
@@ -82,7 +85,10 @@ const Lugar = {
   async foto(s) {
     if (s.fotoG) return s.fotoG;
     if (s.pid && claveMaps()) { const c = await this.completar(Object.assign({}, s, { lat: null })); if (c.fotoG) return c.fotoG; }
-    return this.fotoWiki(s.n);
+    /* Sin ficha de Google: Wikipedia por el nombre y, si no, por la ciudad */
+    const u = await this.fotoWiki(s.n); if (u) return u;
+    for (const t of String(s.sub || '').split(',').map(x => x.trim()).filter(x => x && !/\d/.test(x)).reverse().slice(1, 3).reverse()) { const v = await this.fotoWiki(t); if (v) return v; }
+    return '';
   },
   /* Wikipedia: la foto principal del artículo; si es un mapa o una bandera (países), la primera foto de verdad */
   async fotoWiki(n) {
@@ -94,7 +100,7 @@ const Lugar = {
         const r = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/summary/${t}?redirect=true`);
         if (!r.ok) continue;
         const j = await r.json();
-        const u = (j.originalimage && j.originalimage.width >= 700 ? j.originalimage.source : null) || (j.thumbnail && j.thumbnail.source && j.thumbnail.source.replace(/\/\d+px-/, '/1280px-'));
+        const u = (j.originalimage && j.originalimage.width >= 700 ? fotoLigera(j.originalimage.source) : null) || (j.thumbnail && j.thumbnail.source && j.thumbnail.source.replace(/\/\d+px-/, '/1280px-'));
         if (u && !/\.svg/i.test(u) && !MALA.test(decodeURIComponent(u.split('/').pop()))) return u;
         const r2 = await fetch(`https://${idioma}.wikipedia.org/api/rest_v1/page/media-list/${encodeURIComponent((j.titles && j.titles.canonical) || nombre.replace(/ /g, '_'))}`);
         if (!r2.ok) continue;
