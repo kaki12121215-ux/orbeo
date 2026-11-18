@@ -101,7 +101,7 @@ function tarjetaIdea(x) {
   const cat = x.cat ? tipoDe(x.cat, true) : null;
   /* Sin foto, un TikTok enseña su propio vídeo (quieto, sin botones) */
   const tt = !u && x.fuente === 'tiktok' && x.ttid ? reproductorTikTok(x.ttid, { mini: true }) : '';
-  return `<button class="o-idea t t-g${x.cargando ? ' o-carga' : ''}${x.parada ? ' o-enplan' : ''}" data-a="idea" data-id="${x.id}" data-e="pop">
+  return `<button class="o-idea t t-g${x.cargando ? ' o-carga' : ''}${x.parada ? ' o-enplan' : ''}" data-a="idea" data-lp="idea" data-id="${x.id}" data-e="pop">
     <span class="o-idea-img ${alto}" style="${u ? `background-image:url('${u}')` : ''}">${u ? '' : tt || `<span class="o-idea-ph">${ic(F.ic, 30, 1.3)}</span>`}
       <span class="o-idea-src o-vido">${ic(F.ic, 14, 1.9)}</span>${x.fuente === 'tiktok' && u ? `<span class="o-idea-play">${ic('play', 16, 2)}</span>` : ''}
       ${x.parada ? `<span class="o-idea-plan o-vido">${ic('check', 13, 2.4)}En el plan</span>` : ''}</span>

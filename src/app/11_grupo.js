@@ -107,7 +107,7 @@ function invitar(vid, o) {
 }
 /* Elegir qué viajes ve una persona */
 function viajesDePersona(x) {
-  const vs = viajes(); let sel = (x.viajes && x.viajes.length) ? x.viajes.slice() : null;
+  const vs = viajes().concat(viajes(true)); let sel = (x.viajes && x.viajes.length) ? x.viajes.slice() : null;
   const pintar = () => `<div class="o-hcab" data-e><div class="o-t2">Qué ve ${esc(x.nombre.split(' ')[0])}</div></div>
     <button class="o-vsel t${!sel ? ' o-on' : ''}" data-a="todos" data-e><span class="o-casilla">${ic('check', 14, 2.6)}</span><span><span class="o-t3">Todo el espacio</span><span class="o-nota">También los viajes que creéis después</span></span></button>
     <div class="o-sec" data-e><span class="o-cap">O solo estos viajes</span></div>

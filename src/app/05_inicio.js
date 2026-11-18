@@ -158,6 +158,7 @@ PANT.inicio = {
         <div class="o-filas">${borradores().map(filaBorrador).join('')}</div>` : ''}
       ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
         <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
+      ${carpetasInicio()}
       </div></div>
     </div>`;
   },
@@ -175,7 +176,9 @@ PANT.inicio = {
       const id = b.dataset.id; borrar('borradores', id);
       aviso('Borrador borrado', { accion: { t: 'Deshacer', f: () => poner('borradores', id, { _b: 0 }) } });
     },
-    ajustes: () => Nav.ir('ajustes')
+    ajustes: () => Nav.ir('ajustes'),
+    archivados: () => Nav.ir('archivados'),
+    papelera: () => Nav.ir('papelera', {})
   }
 };
 function borradores() { return lista('borradores', b => b.por === yo() || b._por === yo()).sort((a, b) => (b.cuando || 0) - (a.cuando || 0)); }
@@ -203,7 +206,7 @@ function tarjetaHeroe(v) {
   const etiqueta = e.e === 'curso' ? `En curso · Día ${e.dia} de ${e.total}` : `Próximo · ${rango(v.desde, v.hasta)}`;
   const grande = e.e === 'curso' ? [e.dia, 'día'] : [e.faltan, e.faltan === 1 ? 'día falta' : 'días faltan'];
   const url = portadaUrl(v);
-  return `<button class="o-heroe t t-g" data-a="abrir" data-id="${v.id}" data-e="heroe">
+  return `<button class="o-heroe t t-g" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="heroe">
     <div class="o-heroe-foto" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : portadaVacia(v)}</div>
     <div class="o-heroe-velo"></div>
     <div class="o-heroe-arr"><span class="o-chip o-vido">${e.e === 'curso' ? '<span class="o-punto"></span>' : ''}${esc(etiqueta)}</span></div>
@@ -222,7 +225,7 @@ function tarjetaHeroe(v) {
 function portadaVacia(v) { return `<div class="o-port-vacia"><span>${esc((v.nombre || '?').slice(0, 1))}</span></div>`; }
 function filaViaje(v) {
   const e = v._e, url = portadaUrl(v);
-  return `<button class="o-filav t" data-a="abrir" data-id="${v.id}" data-e>
+  return `<button class="o-filav t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e>
     <span class="o-filav-f" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : esc((v.nombre || '?')[0])}</span>
     <span class="o-filav-t"><span class="o-t3">${esc(v.nombre)}</span><span class="o-nota">${esc(rango(v.desde, v.hasta))} · ${esc(v.ciudad || v.lugar || '')}</span></span>
     <span class="o-filav-d"><span class="o-num tn">${e.e === 'curso' ? e.dia : e.faltan}</span><span class="o-cap">${e.e === 'curso' ? 'día' : 'días'}</span></span>
@@ -230,7 +233,7 @@ function filaViaje(v) {
 }
 function tarjetaRecuerdo(v) {
   const url = portadaUrl(v);
-  return `<button class="o-rec t" data-a="abrir" data-id="${v.id}" data-e="pop">
+  return `<button class="o-rec t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="pop">
     <span class="o-rec-f" style="${url ? `background-image:url('${url}')` : ''}"></span>
     <span class="o-rec-t"><span>${esc(v.nombre)}</span><span class="o-nota">${esc(MESES[fecha(v.desde).getUTCMonth()])} ${fecha(v.desde).getUTCFullYear()}</span></span>
   </button>`;
@@ -338,8 +341,8 @@ function editarViaje(v, o) {
       },
       quien: (b) => { const id = b.dataset.id, i = f.quienes.indexOf(id); if (i >= 0) f.quienes.splice(i, 1); else f.quienes.push(id); b.classList.toggle('o-on', i < 0); Anim.salto($('.o-av', b)); },
       borrar: async () => {
-        if (!(await Capa.confirmar({ titulo: '¿Borrar «' + v.nombre + '»?', texto: 'Se borra para todo el grupo, con sus paradas, ideas y documentos.', si: 'Borrar', peligro: true }))) return;
-        borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje borrado');
+        if (!(await Capa.confirmar({ titulo: '¿Borrar «' + v.nombre + '»?', texto: 'Va a la papelera del inicio con sus paradas, ideas y documentos. Puedes recuperarlo durante 30 días.', si: 'Borrar', peligro: true }))) return;
+        borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje en la papelera', { accion: { t: 'Deshacer', f: () => restaurar('viajes', v.id) } });
       },
       guardar: async (b) => {
         const h = c.hoja;

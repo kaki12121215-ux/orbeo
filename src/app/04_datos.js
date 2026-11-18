@@ -96,7 +96,7 @@ const TIPOS_DOC = {
 };
 
 /* ---------- viajes */
-function viajes() { return lista('viajes').sort((a, b) => (a.desde || '').localeCompare(b.desde || '')); }
+function viajes(archivados) { return lista('viajes', v => !v.archivado === !archivados).sort((a, b) => (a.desde || '').localeCompare(b.desde || '')); }
 function diasDe(v) { const n = Math.max(0, difDias(v.desde, v.hasta || v.desde)); return Array.from({ length: n + 1 }, (_, i) => sumaDias(v.desde, i)); }
 function hoyEn(v) { return enZona(v.tz || TZ_CASA()).dia; }
 function estadoViaje(v) {

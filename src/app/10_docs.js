@@ -18,7 +18,7 @@ TABS.docs = {
 function tarjetaDoc(d) {
   const T = TIPOS_DOC[d.tipo] || TIPOS_DOC.otro;
   const [dia, hora] = String(d.cuando || '').split(' ');
-  return `<button class="o-doc t t-g" data-a="doc" data-id="${d.id}" data-e>
+  return `<button class="o-doc t t-g" data-a="doc" data-lp="doc" data-id="${d.id}" data-e>
     <span class="o-doc-ic">${ic(T.ic, 22, 1.5)}</span>
     <span class="o-doc-t"><span class="o-cap">${esc(T.t)}${dia ? ' · ' + esc(fechaCorta(dia)) : ''}${hora ? ' · ' + esc(hora) : ''}</span><span class="o-doc-n">${esc(d.titulo)}</span>${d.detalles ? `<span class="o-nota o-1l">${esc(d.detalles)}</span>` : ''}</span>
     ${d.codigo ? `<span class="o-doc-c tn">${esc(d.codigo)}</span>` : ''}

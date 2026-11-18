@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.7 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.8 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.7';
+const VERSION = '1.0.8';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -715,6 +715,8 @@ const ICONOS = {
   music: '<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
   more: '<circle cx="5.5" cy="12" r=".9"/><circle cx="12" cy="12" r=".9"/><circle cx="18.5" cy="12" r=".9"/>',
   edit: '<path d="M4.5 19.5l.8-3.7L15.7 5.4a1.8 1.8 0 012.6 0l.3.3a1.8 1.8 0 010 2.6L8.2 18.7z"/><path d="M13.5 7.5l3 3"/>',
+  archive: '<rect x="3.5" y="4.5" width="17" height="4.5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V9M10 13h4"/>',
+  undo: '<path d="M9 14L4.5 9.5 9 5"/><path d="M4.5 9.5H14a5.5 5.5 0 010 11h-3"/>',
   trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5a1.5 1.5 0 001.5 1.5h6a1.5 1.5 0 001.5-1.5l1-12.5"/>',
   link: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1.2 1.2M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1.2-1.2"/>',
   pin: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0113 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
@@ -1330,7 +1332,7 @@ const TIPOS_DOC = {
 };
 
 /* ---------- viajes */
-function viajes() { return lista('viajes').sort((a, b) => (a.desde || '').localeCompare(b.desde || '')); }
+function viajes(archivados) { return lista('viajes', v => !v.archivado === !archivados).sort((a, b) => (a.desde || '').localeCompare(b.desde || '')); }
 function diasDe(v) { const n = Math.max(0, difDias(v.desde, v.hasta || v.desde)); return Array.from({ length: n + 1 }, (_, i) => sumaDias(v.desde, i)); }
 function hoyEn(v) { return enZona(v.tz || TZ_CASA()).dia; }
 function estadoViaje(v) {
@@ -1632,6 +1634,7 @@ PANT.inicio = {
         <div class="o-filas">${borradores().map(filaBorrador).join('')}</div>` : ''}
       ${pas.length ? `<div class="o-sec" data-e><span class="o-cap">Recuerdos</span><span class="o-nota tn">${pas.length}</span></div>
         <div class="o-recs">${pas.map(tarjetaRecuerdo).join('')}</div>` : ''}
+      ${carpetasInicio()}
       </div></div>
     </div>`;
   },
@@ -1649,7 +1652,9 @@ PANT.inicio = {
       const id = b.dataset.id; borrar('borradores', id);
       aviso('Borrador borrado', { accion: { t: 'Deshacer', f: () => poner('borradores', id, { _b: 0 }) } });
     },
-    ajustes: () => Nav.ir('ajustes')
+    ajustes: () => Nav.ir('ajustes'),
+    archivados: () => Nav.ir('archivados'),
+    papelera: () => Nav.ir('papelera', {})
   }
 };
 function borradores() { return lista('borradores', b => b.por === yo() || b._por === yo()).sort((a, b) => (b.cuando || 0) - (a.cuando || 0)); }
@@ -1677,7 +1682,7 @@ function tarjetaHeroe(v) {
   const etiqueta = e.e === 'curso' ? `En curso · Día ${e.dia} de ${e.total}` : `Próximo · ${rango(v.desde, v.hasta)}`;
   const grande = e.e === 'curso' ? [e.dia, 'día'] : [e.faltan, e.faltan === 1 ? 'día falta' : 'días faltan'];
   const url = portadaUrl(v);
-  return `<button class="o-heroe t t-g" data-a="abrir" data-id="${v.id}" data-e="heroe">
+  return `<button class="o-heroe t t-g" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="heroe">
     <div class="o-heroe-foto" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : portadaVacia(v)}</div>
     <div class="o-heroe-velo"></div>
     <div class="o-heroe-arr"><span class="o-chip o-vido">${e.e === 'curso' ? '<span class="o-punto"></span>' : ''}${esc(etiqueta)}</span></div>
@@ -1696,7 +1701,7 @@ function tarjetaHeroe(v) {
 function portadaVacia(v) { return `<div class="o-port-vacia"><span>${esc((v.nombre || '?').slice(0, 1))}</span></div>`; }
 function filaViaje(v) {
   const e = v._e, url = portadaUrl(v);
-  return `<button class="o-filav t" data-a="abrir" data-id="${v.id}" data-e>
+  return `<button class="o-filav t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e>
     <span class="o-filav-f" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : esc((v.nombre || '?')[0])}</span>
     <span class="o-filav-t"><span class="o-t3">${esc(v.nombre)}</span><span class="o-nota">${esc(rango(v.desde, v.hasta))} · ${esc(v.ciudad || v.lugar || '')}</span></span>
     <span class="o-filav-d"><span class="o-num tn">${e.e === 'curso' ? e.dia : e.faltan}</span><span class="o-cap">${e.e === 'curso' ? 'día' : 'días'}</span></span>
@@ -1704,7 +1709,7 @@ function filaViaje(v) {
 }
 function tarjetaRecuerdo(v) {
   const url = portadaUrl(v);
-  return `<button class="o-rec t" data-a="abrir" data-id="${v.id}" data-e="pop">
+  return `<button class="o-rec t" data-a="abrir" data-lp="viaje" data-id="${v.id}" data-e="pop">
     <span class="o-rec-f" style="${url ? `background-image:url('${url}')` : ''}"></span>
     <span class="o-rec-t"><span>${esc(v.nombre)}</span><span class="o-nota">${esc(MESES[fecha(v.desde).getUTCMonth()])} ${fecha(v.desde).getUTCFullYear()}</span></span>
   </button>`;
@@ -1812,8 +1817,8 @@ function editarViaje(v, o) {
       },
       quien: (b) => { const id = b.dataset.id, i = f.quienes.indexOf(id); if (i >= 0) f.quienes.splice(i, 1); else f.quienes.push(id); b.classList.toggle('o-on', i < 0); Anim.salto($('.o-av', b)); },
       borrar: async () => {
-        if (!(await Capa.confirmar({ titulo: '¿Borrar «' + v.nombre + '»?', texto: 'Se borra para todo el grupo, con sus paradas, ideas y documentos.', si: 'Borrar', peligro: true }))) return;
-        borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje borrado');
+        if (!(await Capa.confirmar({ titulo: '¿Borrar «' + v.nombre + '»?', texto: 'Va a la papelera del inicio con sus paradas, ideas y documentos. Puedes recuperarlo durante 30 días.', si: 'Borrar', peligro: true }))) return;
+        borrar('viajes', v.id); c.cerrar(); Nav.raiz('inicio'); aviso('Viaje en la papelera', { accion: { t: 'Deshacer', f: () => restaurar('viajes', v.id) } });
       },
       guardar: async (b) => {
         const h = c.hoja;
@@ -1941,10 +1946,13 @@ PANT.viaje.acciones.mas = (b, e, p) => {
     { t: 'Grupo e invitaciones', ic: 'users', f: () => Nav.ir('grupo', { id: v.id }) },
     '-',
     puedoEditar() ? { t: 'Editar el viaje', ic: 'edit', f: () => editarViaje(v) } : null,
+    puedoEditar() ? { t: v.archivado ? 'Sacar de archivados' : 'Archivar el viaje', ic: 'archive', f: () => archivarViaje(v.id, !v.archivado) } : null,
+    { t: 'Papelera' + (papeleraViaje(v.id).length ? ' · ' + papeleraViaje(v.id).length : ''), ic: 'trash', f: () => Nav.ir('papelera', { viaje: v.id }) },
     { t: 'Ajustes', ic: 'settings', f: () => Nav.ir('ajustes') }
   ].filter(Boolean));
 };
 PANT.viaje.acciones.hora = (b, e, p) => Nav.ir('hora', { id: p.id });
+PANT.viaje.acciones.papeleraV = (b, e, p) => Nav.ir('papelera', { viaje: p.id });
 PANT.viaje.acciones.grupo = (b, e, p) => Nav.ir('grupo', { id: p.id });
 
 /* Cabecera con la portada (común a las pestañas) */
@@ -2001,6 +2009,7 @@ TABS.plan = {
         <span class="o-peli-t"><span class="o-t3">Película del día</span><span class="o-nota">${fotosDia ? fotosDia + (fotosDia === 1 ? ' foto' : ' fotos') + ', se monta sola' : 'Añade fotos y se monta sola'}</span></span>
         <span class="o-bt o-lleno">${ic('play', 16, 2)}</span>
       </button>
+      <button class="o-carp-v t" data-a="papeleraV" data-e>${ic('trash', 16, 1.7)}Papelera del viaje${papeleraViaje(v.id).length ? ' · ' + papeleraViaje(v.id).length : ''}</button>
       </div>`;
     if (ESCRITORIO()) return `<div class="o-esc"><div class="o-esc-plan">${plan}</div><div class="o-esc-mapa"><div class="o-mapa" id="mapa-esc" data-fijo></div></div></div>`;
     return plan;
@@ -2051,13 +2060,13 @@ function calDia(v, dia, ps) {
   const ahora = hoyEn(v) === dia ? enZona(v.tz).min : null;
   const horas = []; for (let h = ini / 60; h <= fin / 60; h++) horas.push(h);
   return `<div class="o-cal" data-dia="${dia}">
-    ${sin.length ? `<div class="o-cal-sin" data-e><span class="o-cap">Sin hora</span>${sin.map(x => `<button class="o-cal-chip t" data-a="parada" data-id="${x.id}" style="--cc:${colorCat(x.tipo)}"><span class="o-cal-pt"></span><span class="o-1l">${esc(x.nombre)}</span></button>`).join('')}</div>` : ''}
+    ${sin.length ? `<div class="o-cal-sin" data-e><span class="o-cap">Sin hora</span>${sin.map(x => `<button class="o-cal-chip t" data-a="parada" data-lp="parada" data-id="${x.id}" style="--cc:${colorCat(x.tipo)}"><span class="o-cal-pt"></span><span class="o-1l">${esc(x.nombre)}</span></button>`).join('')}</div>` : ''}
     <div class="o-cal-g" data-e data-a="${puedoEditar() ? 'calHueco' : ''}" data-ini="${ini}" style="height:${y(fin) + 8}px">
       ${horas.map(h => `<div class="o-cal-h" style="top:${y(h * 60)}px"><span class="tn">${String(h).padStart(2, '0')}:00</span></div>`).join('')}
       <div class="o-cal-evs">
       ${ev.map(e => {
         const x = e.x, foto = fotoParada(x, 330), alto = y(e.b) - y(e.a) - 4;
-        return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
+        return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-lp="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
           ${foto && alto >= 54 && e.n < 3 ? `<span class="o-cal-f" style="background-image:url('${foto}')"></span>` : ''}
           <span class="o-cal-tx"><span class="o-cal-n">${esc(x.nombre)}</span><span class="o-cal-s tn">${esc(x.hora)}${x.fin ? ' – ' + esc(x.fin) : ''}${alto >= 70 && x.lugar && x.lugar.dir ? ' · ' + esc(x.lugar.dir.split(',')[0]) : ''}</span></span>
         </button>`;
@@ -2082,7 +2091,7 @@ function filaParada(x, i, ps, ah, v) {
     return `<div class="o-par o-ahora" data-e>
       <div class="o-par-h tn">${esc(x.hora || '')}</div>
       <div class="o-par-n">${nodo}<span class="o-par-l"></span></div>
-      <div class="o-ahora-c o-vid t t-g" data-a="parada" data-id="${x.id}">
+      <div class="o-ahora-c o-vid t t-g" data-a="parada" data-lp="parada" data-id="${x.id}">
         <div class="o-fila" style="align-items:center">
           <span class="o-ahora-f" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : ic(tp.ic, 26, 1.5)}</span>
           <span class="o-ahora-t"><span class="o-ahora-e"><span class="o-punto${ah.ahora ? ' o-vivo' : ''}"></span>${estado}${falta ? ' · ' + esc(falta) : ''}</span><span class="o-ahora-nom">${esc(x.nombre)}</span>${x.nota ? `<span class="o-nota o-1l">${esc(x.nota)}</span>` : ''}</span>
@@ -2093,7 +2102,7 @@ function filaParada(x, i, ps, ah, v) {
   return `<div class="o-par${pasado ? ' o-pasada' : ''}" data-e>
     <div class="o-par-h tn">${esc(x.hora || '')}</div>
     <div class="o-par-n">${nodo}<span class="o-par-l"></span></div>
-    <button class="o-par-c t" data-a="parada" data-id="${x.id}">
+    <button class="o-par-c t" data-a="parada" data-lp="parada" data-id="${x.id}">
       <span class="o-par-f" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : ic(tp.ic, 19, 1.6)}</span>
       <span class="o-par-t"><span class="o-par-nom">${esc(x.nombre)}</span><span class="o-nota o-1l">${esc(x.fin ? x.hora + ' – ' + x.fin + ' · ' + tp.t : (x.nota || tp.t))}</span></span>
       ${x._por && x._por !== yo() && dato('personas', x._por) ? avatar(dato('personas', x._por), 22) : ''}
@@ -2886,7 +2895,7 @@ function tarjetaIdea(x) {
   const cat = x.cat ? tipoDe(x.cat, true) : null;
   /* Sin foto, un TikTok enseña su propio vídeo (quieto, sin botones) */
   const tt = !u && x.fuente === 'tiktok' && x.ttid ? reproductorTikTok(x.ttid, { mini: true }) : '';
-  return `<button class="o-idea t t-g${x.cargando ? ' o-carga' : ''}${x.parada ? ' o-enplan' : ''}" data-a="idea" data-id="${x.id}" data-e="pop">
+  return `<button class="o-idea t t-g${x.cargando ? ' o-carga' : ''}${x.parada ? ' o-enplan' : ''}" data-a="idea" data-lp="idea" data-id="${x.id}" data-e="pop">
     <span class="o-idea-img ${alto}" style="${u ? `background-image:url('${u}')` : ''}">${u ? '' : tt || `<span class="o-idea-ph">${ic(F.ic, 30, 1.3)}</span>`}
       <span class="o-idea-src o-vido">${ic(F.ic, 14, 1.9)}</span>${x.fuente === 'tiktok' && u ? `<span class="o-idea-play">${ic('play', 16, 2)}</span>` : ''}
       ${x.parada ? `<span class="o-idea-plan o-vido">${ic('check', 13, 2.4)}En el plan</span>` : ''}</span>
@@ -2976,7 +2985,7 @@ TABS.docs = {
 function tarjetaDoc(d) {
   const T = TIPOS_DOC[d.tipo] || TIPOS_DOC.otro;
   const [dia, hora] = String(d.cuando || '').split(' ');
-  return `<button class="o-doc t t-g" data-a="doc" data-id="${d.id}" data-e>
+  return `<button class="o-doc t t-g" data-a="doc" data-lp="doc" data-id="${d.id}" data-e>
     <span class="o-doc-ic">${ic(T.ic, 22, 1.5)}</span>
     <span class="o-doc-t"><span class="o-cap">${esc(T.t)}${dia ? ' · ' + esc(fechaCorta(dia)) : ''}${hora ? ' · ' + esc(hora) : ''}</span><span class="o-doc-n">${esc(d.titulo)}</span>${d.detalles ? `<span class="o-nota o-1l">${esc(d.detalles)}</span>` : ''}</span>
     ${d.codigo ? `<span class="o-doc-c tn">${esc(d.codigo)}</span>` : ''}
@@ -3228,7 +3237,7 @@ function invitar(vid, o) {
 }
 /* Elegir qué viajes ve una persona */
 function viajesDePersona(x) {
-  const vs = viajes(); let sel = (x.viajes && x.viajes.length) ? x.viajes.slice() : null;
+  const vs = viajes().concat(viajes(true)); let sel = (x.viajes && x.viajes.length) ? x.viajes.slice() : null;
   const pintar = () => `<div class="o-hcab" data-e><div class="o-t2">Qué ve ${esc(x.nombre.split(' ')[0])}</div></div>
     <button class="o-vsel t${!sel ? ' o-on' : ''}" data-a="todos" data-e><span class="o-casilla">${ic('check', 14, 2.6)}</span><span><span class="o-t3">Todo el espacio</span><span class="o-nota">También los viajes que creéis después</span></span></button>
     <div class="o-sec" data-e><span class="o-cap">O solo estos viajes</span></div>
@@ -3889,6 +3898,169 @@ function distanciaKm(a, b) {
   const h = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+
+/* ---- 14_papelera.js ---- */
+/* ============================ PAPELERA Y ARCHIVADOS ============================
+   Borrar no borra: lo deja en la papelera 30 días (_b: 1) y se puede recuperar. «Borrar para siempre»
+   lo marca _b: 2 y ya no sale en ningún sitio. Archivar un viaje lo quita del inicio y lo guarda en
+   «Archivados», al final del inicio. Mantener pulsado un viaje, una parada, una idea o un documento
+   abre su menú con estas opciones. */
+const DIAS_PAPELERA = 30;
+const COLS_PAPELERA = { viajes: 'Viaje', paradas: 'Parada', ideas: 'Idea', docs: 'Documento' };
+
+/* Lo borrado de una colección en los últimos 30 días, con la fecha en que se borró */
+function enPapelera(col, filtro) {
+  const o = S.recs[col] || {}, lim = Date.now() - DIAS_PAPELERA * 864e5;
+  return Object.keys(o).filter(id => o[id].f._b === 1 && (o[id].t._b || 0) > lim)
+    .map(id => Object.assign({ id, _col: col, _bt: o[id].t._b || 0 }, o[id].f))
+    .filter(x => !filtro || filtro(x)).sort((a, b) => b._bt - a._bt);
+}
+function papeleraInicio() { return enPapelera('viajes'); }
+function papeleraViaje(vid) { return ['paradas', 'ideas', 'docs'].reduce((r, c) => r.concat(enPapelera(c, x => x.viaje === vid)), []).sort((a, b) => b._bt - a._bt); }
+function restaurar(col, id) { poner(col, id, { _b: 0 }); }
+function borrarYa(col, id) { poner(col, id, { _b: 2 }); }
+function aPapelera(col, id, nombre) {
+  borrar(col, id);
+  aviso((nombre ? '«' + nombre + '» ' : '') + 'a la papelera', { accion: { t: 'Deshacer', f: () => restaurar(col, id) } });
+}
+function archivarViaje(id, si) {
+  const v = dato('viajes', id); if (!v) return;
+  poner('viajes', id, { archivado: !!si });
+  aviso(si ? '«' + v.nombre + '» archivado' : '«' + v.nombre + '» vuelve al inicio', si ? { accion: { t: 'Deshacer', f: () => poner('viajes', id, { archivado: false }) } } : null);
+}
+
+/* Las dos carpetas al final del inicio */
+function carpetasInicio() {
+  const na = viajes(true).length, np = papeleraInicio().length;
+  const f = (a, i, t, n, nota) => `<button class="o-carp t" data-a="${a}" data-e><span class="o-carp-i">${ic(i, 20, 1.6)}</span><span class="o-carp-t"><span class="o-t3">${t}</span><span class="o-nota">${nota}</span></span><span class="o-nota tn">${n || ''}</span>${ic('fwd', 18)}</button>`;
+  return `<div class="o-carps">
+    ${f('archivados', 'archive', 'Archivados', na, na ? (na === 1 ? '1 viaje guardado' : na + ' viajes guardados') : 'Mantén pulsado un viaje para archivarlo')}
+    ${f('papelera', 'trash', 'Papelera', np, np ? 'Se vacía sola a los 30 días' : 'Vacía')}
+  </div>`;
+}
+
+/* ---------- Menú al mantener pulsado */
+const MENU_LARGO = {
+  viaje(id) {
+    const v = dato('viajes', id); if (!v) return null;
+    return [
+      { t: 'Abrir', ic: 'fwd', f: () => abrirViaje(id) },
+      puedoEditar() ? { t: v.archivado ? 'Sacar de archivados' : 'Archivar', ic: 'archive', f: () => archivarViaje(id, !v.archivado) } : null,
+      soyAdmin() ? '-' : null,
+      soyAdmin() ? { t: 'Borrar', ic: 'trash', peligro: true, f: () => aPapelera('viajes', id, v.nombre) } : null
+    ];
+  },
+  parada(id) {
+    const x = dato('paradas', id); if (!x || !puedoEditar()) return null;
+    return [{ t: 'Abrir', ic: 'fwd', f: () => Nav.ir('parada', { id }) }, '-', { t: 'Borrar', ic: 'trash', peligro: true, f: () => aPapelera('paradas', id, x.nombre) }];
+  },
+  idea(id) {
+    const x = dato('ideas', id); if (!x || !puedoEditar()) return null;
+    return [{ t: 'Borrar la idea', ic: 'trash', peligro: true, f: () => aPapelera('ideas', id, x.titulo) }];
+  },
+  doc(id) {
+    const x = dato('docs', id); if (!x || !puedoEditar()) return null;
+    return [{ t: 'Borrar el documento', ic: 'trash', peligro: true, f: () => aPapelera('docs', id, x.titulo) }];
+  },
+  pap(id, el) {
+    const col = el.dataset.col;
+    return [{ t: 'Recuperar', ic: 'undo', f: () => recuperar(col, id) }, '-', { t: 'Borrar para siempre', ic: 'trash', peligro: true, f: () => borrarParaSiempre(col, id) }];
+  }
+};
+(function () {
+  let tm = null, x0 = 0, y0 = 0, hecho = false;
+  const parar = () => { clearTimeout(tm); tm = null; };
+  document.addEventListener('pointerdown', e => {
+    hecho = false;
+    const t = e.target.closest('[data-lp]'); if (!t || (e.button && e.button !== 0)) return;
+    x0 = e.clientX; y0 = e.clientY; parar();
+    tm = setTimeout(() => {
+      tm = null;
+      const ops = (MENU_LARGO[t.dataset.lp](t.dataset.id, t) || []).filter(Boolean);
+      if (!ops.length) return;
+      hecho = true;
+      t.classList.remove('pres');
+      try { navigator.vibrate && navigator.vibrate(12); } catch (er) { }
+      animar(t, [{ transform: 'scale(.95)' }, { transform: 'scale(1.02)', offset: .55 }, { transform: 'none' }], { duration: 380, easing: CURVA.muelle });
+      Capa.menu(t, ops);
+    }, 480);
+  }, { passive: true });
+  document.addEventListener('pointermove', e => { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) parar(); }, { passive: true });
+  document.addEventListener('pointerup', parar, { passive: true });
+  document.addEventListener('pointercancel', parar, { passive: true });
+  document.addEventListener('scroll', parar, { passive: true, capture: true });
+  /* El toque que termina una pulsación larga no abre nada */
+  document.addEventListener('click', e => { if (hecho) { hecho = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener('contextmenu', e => { if (e.target.closest('[data-lp]')) e.preventDefault(); });
+})();
+
+function recuperar(col, id) {
+  restaurar(col, id);
+  const x = S.recs[col] && S.recs[col][id] && S.recs[col][id].f;
+  /* Si se recupera algo de un viaje que está en la papelera, vuelve también el viaje */
+  if (x && x.viaje && S.recs.viajes && S.recs.viajes[x.viaje] && S.recs.viajes[x.viaje].f._b === 1) restaurar('viajes', x.viaje);
+  aviso('Recuperado');
+}
+async function borrarParaSiempre(col, id) {
+  const x = (S.recs[col] && S.recs[col][id] && S.recs[col][id].f) || {};
+  if (!(await Capa.confirmar({ titulo: '¿Borrar «' + (x.nombre || x.titulo || '') + '» para siempre?', texto: 'Ya no se podrá recuperar.', si: 'Borrar para siempre', peligro: true }))) return;
+  borrarYa(col, id);
+}
+
+/* ---------- Pantalla de la papelera (la del inicio o la de un viaje) */
+PANT.papelera = {
+  render(p) {
+    const v = p.viaje ? dato('viajes', p.viaje) : null;
+    const xs = p.viaje ? papeleraViaje(p.viaje) : papeleraInicio();
+    return `<div class="o-cont">
+      <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button><span class="o-nota">${v ? esc(v.nombre) : ''}</span>${xs.length && puedoEditar() ? `<button class="o-pil o-sec o-peq o-pmal-t t" data-a="vaciar">Vaciar</button>` : '<span style="width:46px"></span>'}</div>
+      <div class="o-tabc-t"><h1 class="o-t1" data-e="titulo">Papelera</h1><span class="o-num o-tabc-n tn" data-e>${xs.length}</span></div>
+      <p class="o-nota" data-e style="margin-top:6px">${p.viaje ? 'Paradas, ideas y documentos borrados de este viaje.' : 'Viajes borrados.'} Se quedan aquí ${DIAS_PAPELERA} días. Mantén pulsado para recuperar o borrar para siempre.</p>
+      ${xs.length ? `<div class="o-filas" style="margin-top:14px">${xs.map(filaPapelera).join('')}</div>`
+      : `<div class="o-vacio" data-e="pop" style="margin-top:12vh"><div class="o-vacio-ic">${ic('trash', 30, 1.4)}</div><div class="o-t3">La papelera está vacía</div><p class="o-nota">Lo que borres se queda aquí ${DIAS_PAPELERA} días por si te arrepientes.</p></div>`}
+    </div>`;
+  },
+  alVolver(el, p, pa) { if (pa.sucia) { pa.sucia = false; Nav.pintar(pa, false); } },
+  acciones: {
+    pap: (b) => Capa.menu(b, MENU_LARGO.pap(b.dataset.id, b)),
+    recup: (b, e) => { e.stopPropagation(); recuperar(b.dataset.col, b.dataset.id); },
+    vaciar: async (b, e, p) => {
+      const xs = p.viaje ? papeleraViaje(p.viaje) : papeleraInicio();
+      if (!(await Capa.confirmar({ titulo: '¿Vaciar la papelera?', texto: (xs.length === 1 ? 'Lo que hay' : 'Las ' + xs.length + ' cosas que hay') + ' se borra para siempre.', si: 'Vaciar', peligro: true }))) return;
+      xs.forEach(x => poner(x._col, x.id, { _b: 2 }, { callado: true }));
+      Nav.refrescar(); aviso('Papelera vacía');
+    }
+  }
+};
+function filaPapelera(x) {
+  const quedan = Math.max(1, DIAS_PAPELERA - Math.floor((Date.now() - x._bt) / 864e5));
+  const url = x._col === 'viajes' ? portadaUrl(x) : x._col === 'paradas' ? fotoParada(x, 330) : x._col === 'ideas' ? urlMedio(x.imagen, 330) : '';
+  const icono = x._col === 'viajes' ? 'globe' : x._col === 'paradas' ? tipoDe(x.tipo).ic : x._col === 'ideas' ? 'idea' : 'doc';
+  const d = new Date(x._bt);
+  return `<div class="o-filav o-papf" data-e>
+    <button class="o-papf-a t" data-a="pap" data-lp="pap" data-col="${x._col}" data-id="${x.id}">
+      <span class="o-filav-f" style="${url ? `background-image:url('${url}')` : ''}">${url ? '' : ic(icono, 20, 1.5)}</span>
+      <span class="o-filav-t"><span class="o-t3 o-1l">${esc(x.nombre || x.titulo || 'Sin nombre')}</span><span class="o-nota">${COLS_PAPELERA[x._col]} · borrado el ${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)} · ${quedan === 1 ? 'queda 1 día' : 'quedan ' + quedan + ' días'}</span></span>
+    </button>
+    ${puedoEditar() ? `<button class="o-bt o-borde t t-s" data-a="recup" data-col="${x._col}" data-id="${x.id}" aria-label="Recuperar">${ic('undo', 18)}</button>` : ''}
+  </div>`;
+}
+
+/* ---------- Viajes archivados */
+PANT.archivados = {
+  render() {
+    const vs = viajes(true).reverse();
+    return `<div class="o-cont">
+      <div class="o-cab" data-e><button class="o-bt o-borde t t-s" data-a="atras">${ic('back')}</button><span></span><span style="width:46px"></span></div>
+      <div class="o-tabc-t"><h1 class="o-t1" data-e="titulo">Archivados</h1><span class="o-num o-tabc-n tn" data-e>${vs.length}</span></div>
+      <p class="o-nota" data-e style="margin-top:6px">Viajes que has quitado del inicio. Mantén pulsado uno para devolverlo al inicio o borrarlo.</p>
+      ${vs.length ? `<div class="o-recs" style="margin-top:18px">${vs.map(tarjetaRecuerdo).join('')}</div>`
+      : `<div class="o-vacio" data-e="pop" style="margin-top:12vh"><div class="o-vacio-ic">${ic('archive', 30, 1.4)}</div><div class="o-t3">Nada archivado</div><p class="o-nota">Mantén pulsado un viaje del inicio y elige Archivar.</p></div>`}
+    </div>`;
+  },
+  alVolver(el, p, pa) { if (pa.sucia) { pa.sucia = false; Nav.pintar(pa, false); } },
+  acciones: { abrir: (b, e) => abrirViaje(b.dataset.id, b, e) }
+};
 
 /* ---- 15_arranque.js ---- */
 /* ============================ ARRANQUE ============================ */

@@ -73,10 +73,13 @@ PANT.viaje.acciones.mas = (b, e, p) => {
     { t: 'Grupo e invitaciones', ic: 'users', f: () => Nav.ir('grupo', { id: v.id }) },
     '-',
     puedoEditar() ? { t: 'Editar el viaje', ic: 'edit', f: () => editarViaje(v) } : null,
+    puedoEditar() ? { t: v.archivado ? 'Sacar de archivados' : 'Archivar el viaje', ic: 'archive', f: () => archivarViaje(v.id, !v.archivado) } : null,
+    { t: 'Papelera' + (papeleraViaje(v.id).length ? ' · ' + papeleraViaje(v.id).length : ''), ic: 'trash', f: () => Nav.ir('papelera', { viaje: v.id }) },
     { t: 'Ajustes', ic: 'settings', f: () => Nav.ir('ajustes') }
   ].filter(Boolean));
 };
 PANT.viaje.acciones.hora = (b, e, p) => Nav.ir('hora', { id: p.id });
+PANT.viaje.acciones.papeleraV = (b, e, p) => Nav.ir('papelera', { viaje: p.id });
 PANT.viaje.acciones.grupo = (b, e, p) => Nav.ir('grupo', { id: p.id });
 
 /* Cabecera con la portada (común a las pestañas) */
@@ -133,6 +136,7 @@ TABS.plan = {
         <span class="o-peli-t"><span class="o-t3">Película del día</span><span class="o-nota">${fotosDia ? fotosDia + (fotosDia === 1 ? ' foto' : ' fotos') + ', se monta sola' : 'Añade fotos y se monta sola'}</span></span>
         <span class="o-bt o-lleno">${ic('play', 16, 2)}</span>
       </button>
+      <button class="o-carp-v t" data-a="papeleraV" data-e>${ic('trash', 16, 1.7)}Papelera del viaje${papeleraViaje(v.id).length ? ' · ' + papeleraViaje(v.id).length : ''}</button>
       </div>`;
     if (ESCRITORIO()) return `<div class="o-esc"><div class="o-esc-plan">${plan}</div><div class="o-esc-mapa"><div class="o-mapa" id="mapa-esc" data-fijo></div></div></div>`;
     return plan;
@@ -183,13 +187,13 @@ function calDia(v, dia, ps) {
   const ahora = hoyEn(v) === dia ? enZona(v.tz).min : null;
   const horas = []; for (let h = ini / 60; h <= fin / 60; h++) horas.push(h);
   return `<div class="o-cal" data-dia="${dia}">
-    ${sin.length ? `<div class="o-cal-sin" data-e><span class="o-cap">Sin hora</span>${sin.map(x => `<button class="o-cal-chip t" data-a="parada" data-id="${x.id}" style="--cc:${colorCat(x.tipo)}"><span class="o-cal-pt"></span><span class="o-1l">${esc(x.nombre)}</span></button>`).join('')}</div>` : ''}
+    ${sin.length ? `<div class="o-cal-sin" data-e><span class="o-cap">Sin hora</span>${sin.map(x => `<button class="o-cal-chip t" data-a="parada" data-lp="parada" data-id="${x.id}" style="--cc:${colorCat(x.tipo)}"><span class="o-cal-pt"></span><span class="o-1l">${esc(x.nombre)}</span></button>`).join('')}</div>` : ''}
     <div class="o-cal-g" data-e data-a="${puedoEditar() ? 'calHueco' : ''}" data-ini="${ini}" style="height:${y(fin) + 8}px">
       ${horas.map(h => `<div class="o-cal-h" style="top:${y(h * 60)}px"><span class="tn">${String(h).padStart(2, '0')}:00</span></div>`).join('')}
       <div class="o-cal-evs">
       ${ev.map(e => {
         const x = e.x, foto = fotoParada(x, 330), alto = y(e.b) - y(e.a) - 4;
-        return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
+        return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-lp="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
           ${foto && alto >= 54 && e.n < 3 ? `<span class="o-cal-f" style="background-image:url('${foto}')"></span>` : ''}
           <span class="o-cal-tx"><span class="o-cal-n">${esc(x.nombre)}</span><span class="o-cal-s tn">${esc(x.hora)}${x.fin ? ' – ' + esc(x.fin) : ''}${alto >= 70 && x.lugar && x.lugar.dir ? ' · ' + esc(x.lugar.dir.split(',')[0]) : ''}</span></span>
         </button>`;
@@ -214,7 +218,7 @@ function filaParada(x, i, ps, ah, v) {
     return `<div class="o-par o-ahora" data-e>
       <div class="o-par-h tn">${esc(x.hora || '')}</div>
       <div class="o-par-n">${nodo}<span class="o-par-l"></span></div>
-      <div class="o-ahora-c o-vid t t-g" data-a="parada" data-id="${x.id}">
+      <div class="o-ahora-c o-vid t t-g" data-a="parada" data-lp="parada" data-id="${x.id}">
         <div class="o-fila" style="align-items:center">
           <span class="o-ahora-f" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : ic(tp.ic, 26, 1.5)}</span>
           <span class="o-ahora-t"><span class="o-ahora-e"><span class="o-punto${ah.ahora ? ' o-vivo' : ''}"></span>${estado}${falta ? ' · ' + esc(falta) : ''}</span><span class="o-ahora-nom">${esc(x.nombre)}</span>${x.nota ? `<span class="o-nota o-1l">${esc(x.nota)}</span>` : ''}</span>
@@ -225,7 +229,7 @@ function filaParada(x, i, ps, ah, v) {
   return `<div class="o-par${pasado ? ' o-pasada' : ''}" data-e>
     <div class="o-par-h tn">${esc(x.hora || '')}</div>
     <div class="o-par-n">${nodo}<span class="o-par-l"></span></div>
-    <button class="o-par-c t" data-a="parada" data-id="${x.id}">
+    <button class="o-par-c t" data-a="parada" data-lp="parada" data-id="${x.id}">
       <span class="o-par-f" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : ic(tp.ic, 19, 1.6)}</span>
       <span class="o-par-t"><span class="o-par-nom">${esc(x.nombre)}</span><span class="o-nota o-1l">${esc(x.fin ? x.hora + ' – ' + x.fin + ' · ' + tp.t : (x.nota || tp.t))}</span></span>
       ${x._por && x._por !== yo() && dato('personas', x._por) ? avatar(dato('personas', x._por), 22) : ''}
