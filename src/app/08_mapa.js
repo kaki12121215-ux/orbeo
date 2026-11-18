@@ -172,7 +172,7 @@ class Teselas {
   ruta(ps) {
     this.lin = ps; this.pintar();
     const pth = $('path', this.svg);
-    if (pth && !reducido()) { const L = pth.getTotalLength(); pth.style.strokeDasharray = L; animar(pth, [{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1200, delay: 250, easing: CURVA.entrar }).then(() => { pth.style.strokeDasharray = ''; }); }
+    if (!reducido()) animar(this.svg, [{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 250 });
   }
   gestos() {
     const pts = new Map(); let ult = null, d0 = 0, vel = [0, 0], tUlt = 0, toque = 0;
@@ -201,7 +201,7 @@ function curva(pts) {
   let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
   for (let i = 1; i < pts.length; i++) {
     const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], mx = (x0 + x1) / 2, my = (y0 + y1) / 2, dx = x1 - x0, dy = y1 - y0;
-    d += ` Q${(mx - dy * .18).toFixed(1)} ${(my + dx * .18).toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    d += ` L${x1.toFixed(1)} ${y1.toFixed(1)}`;
   }
   return d;
 }
@@ -249,7 +249,8 @@ const Mapa = {
   },
   async montar(cont, v, dia, o) {
     if (!cont) return; o = o || {};
-    const m = await this.crear(cont); cont._mapa = m;
+    const nuevo = !cont._mapa;
+    const m = cont._mapa || await this.crear(cont); cont._mapa = m;
     const ps = (dia && dia !== 'todos' ? paradasDe(v.id, dia) : paradasDe(v.id)).filter(x => x.lugar && x.lugar.lat != null);
     const ideas = o.ideas ? lista('ideas', i => i.viaje === v.id && !i.parada && i.lugar && i.lugar.lat != null) : [];
     const ah = dia && dia !== 'todos' ? paradaAhora(v, dia, paradasDe(v.id, dia)) : { idx: -1 };
@@ -258,7 +259,8 @@ const Mapa = {
       .concat(ideas.map(x => ({ lat: x.lugar.lat, lng: x.lugar.lng, id: x.id, idea: true, html: `<button class="o-mk o-mk-i">${ic('idea', 13, 2)}</button>` })));
     m.marcar(puntos, (p) => o.alTocar && o.alTocar(p));
     if (dia !== 'todos') m.ruta(ps.map(x => ({ lat: x.lugar.lat, lng: x.lugar.lng })));
-    if (puntos.length) m.encuadrar(puntos, o.escritorio ? { t: 60, b: 60, l: 60, r: 60 } : null);
+    if (!nuevo) return m;
+    if (puntos.length) requestAnimationFrame(() => m.encuadrar(puntos, o.escritorio ? { t: 60, b: 60, l: 60, r: 60 } : null));
     else if (v.lat != null) m.centro(v.lat, v.lng, 12);
     return m;
   },
@@ -266,6 +268,7 @@ const Mapa = {
   enfocar(x) { const c = $('.o-mapa'); if (c && c._mapa && x.lugar) c._mapa.volar(x.lugar.lat, x.lugar.lng, 16); },
   /* Mapa pequeño fijo para el detalle de una parada */
   mini(el, l) {
+    const clave = l.lat + ',' + l.lng + document.documentElement.dataset.tema; if (el.dataset.ok === clave) return; el.dataset.ok = clave;
     const z = 15, [x, y] = Teselas.px(l.lat, l.lng, z), W = 64, H = 64;
     const oscuro = document.documentElement.dataset.tema === 'oscuro';
     const tx = Math.floor(x / 256), ty = Math.floor(y / 256);
@@ -280,7 +283,7 @@ TABS.mapa = {
     p.mdia = p.mdia || p.dia || 'todos';
     const ps = (p.mdia === 'todos' ? paradasDe(v.id) : paradasDe(v.id, p.mdia));
     return `<div class="o-vmapa">
-      <div class="o-mapa" id="mapa-v"></div>
+      <div class="o-mapa" id="mapa-v" data-fijo></div>
       <div class="o-vmapa-bar">
         <button class="o-bt o-vid t t-s" data-a="atras">${ic('back', 20)}</button>
         <div class="o-vmapa-d o-vid o-nodrag"><span class="o-pild"></span><button class="o-md t t-s${p.mdia === 'todos' ? ' o-on' : ''}" data-a="mdia" data-d="todos">Todo</button>${dias.map(d => `<button class="o-md t t-s${p.mdia === d ? ' o-on' : ''}" data-a="mdia" data-d="${d}"><span class="tn">${fecha(d).getUTCDate()}</span></button>`).join('')}</div>

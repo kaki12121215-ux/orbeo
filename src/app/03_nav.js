@@ -20,7 +20,9 @@ const Nav = {
     return pa;
   },
   pintar(pa, primera) {
-    pa.el.innerHTML = pa.def.render(pa.p, pa.el, pa);
+    const html = pa.def.render(pa.p, pa.el, pa);
+    /* Al repintar con datos nuevos solo cambia lo distinto: ni parpadean las fotos ni salta el scroll */
+    if (!primera && pa.el.firstChild) morph(pa.el, html); else pa.el.innerHTML = html;
     if (pa.def.alPintar) pa.def.alPintar(pa.el, pa.p, primera, pa);
   },
   click(e, pa) {
@@ -32,21 +34,38 @@ const Nav = {
   },
   async ir(id, p, o) {
     o = o || {};
-    if (this.ocupado) return; this.ocupado = true;
+    if (this.ocupado) return;
     const vieja = this.actual();
+    /* Dos toques seguidos no abren dos veces la misma pantalla */
+    if (vieja && vieja.id === id && JSON.stringify(vieja.p.id) === JSON.stringify((p || {}).id)) return;
+    this.ocupado = true;
+    this.limpiar();
     const nueva = this.crear(id, p);
+    /* Las fotos de arriba se preparan antes de enseñar la pantalla (como mucho 0,35 s) */
+    const urls = $$('[style*="background-image"]', nueva.el).slice(0, 8).map(x => (x.getAttribute('style').match(/url\(['"]?([^'")]+)/) || [])[1]);
+    if (o.vuela && o.vuela.imagen) urls.unshift(o.vuela.imagen);
+    await Fotos.varias(urls, 350);
     nueva.el.style.zIndex = this.pila.length + 2;
     $('#app').appendChild(nueva.el);
     Anim.pildoras(nueva.el);
     this.pila.push(nueva);
     try { history.pushState({ n: this.pila.length }, ''); } catch (e) { }
     document.body.classList.add('o-moviendo');
+    if (vieja) fijar(vieja.el);
     const ent = nueva.def.alEntrar ? () => nueva.def.alEntrar(nueva.el, nueva.p, nueva) : null;
-    if (o.circulo) {
-      /* Revelado circular desde el sitio tocado + la foto que viaja */
+    if (o.vuela) {
+      /* La foto tocada viaja recta hasta su sitio y la pantalla nueva aparece debajo, sin círculos ni giros */
+      const dest = $(o.vuela.hacia, nueva.el);
+      if (vieja) animar(vieja.el, [{ transform: 'none', opacity: 1 }, { transform: 'scale(.96)', opacity: .6 }], { duration: 560, easing: CURVA.entrar });
+      const pr = animar(nueva.el, [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
+      Anim.vuela(o.vuela.desde, dest, { ms: 620, imagen: o.vuela.imagen });
+      Anim.entrar(nueva.el, { retraso: 260, paso: 45 });
+      ent && ent();
+      await Promise.all([pr, espera(620)]);
+      if (vieja) vieja.el.style.opacity = '';
+    } else if (o.circulo) {
       if (vieja) animar(vieja.el, [{ transform: 'none' }, { transform: 'scale(.94)' }], { duration: 760, easing: CURVA.entrar });
       const pr = Anim.circulo(nueva.el, o.circulo.x, o.circulo.y, 760);
-      if (o.vuela) { const dest = $(o.vuela.hacia, nueva.el); Anim.vuela(o.vuela.desde, dest, { ms: 700, imagen: o.vuela.imagen }); }
       Anim.entrar(nueva.el, { retraso: 330, paso: 45 });
       ent && ent();
       await pr;
@@ -57,11 +76,16 @@ const Nav = {
       ent && ent();
       await pr;
     }
-    nueva.el.style.boxShadow = ''; nueva.el.style.clipPath = '';
+    nueva.el.style.boxShadow = ''; nueva.el.style.clipPath = ''; nueva.el.style.opacity = '';
     if (vieja) { vieja.el.classList.add('o-detras'); vieja.el.style.visibility = 'hidden'; }
     document.body.classList.remove('o-moviendo');
     this.ocupado = false;
     Sync.programar();
+  },
+  /* Quita del documento cualquier pantalla que ya no esté en la pila (para que nunca asome una vieja) */
+  limpiar() {
+    const vivas = new Set(this.pila.map(x => x.el));
+    $$('#app > .o-pant').forEach(el => { if (!vivas.has(el)) el.parentNode.removeChild(el); });
   },
   sombra(el, on) {
     let s = $('.o-somb', el);
@@ -78,11 +102,15 @@ const Nav = {
     document.body.classList.add('o-moviendo');
     if (this.refPend) { this.refPend = false; this.pintar(debajo, false); }
     const x = desdeGesto ? desdeGesto.x : 0;
+    fijar(vieja.el); fijar(debajo.el);
+    debajo.el.style.opacity = '';
     this.sombra(debajo.el, false);
     animar(debajo.el, [{ transform: desdeGesto ? `translateX(${-28 + x / innerWidth * 28}%)` : (debajo.el.style.transform.indexOf('scale') >= 0 ? 'scale(.94)' : 'translateX(-28%)') }, { transform: 'none' }], { duration: 420, easing: CURVA.entrar });
     await animar(vieja.el, [{ transform: `translateX(${x}px)` }, { transform: 'translateX(100%)' }], { duration: desdeGesto ? 300 : 420, easing: desdeGesto ? CURVA.entrar : 'cubic-bezier(.4,0,.2,1)' });
     vieja.el.remove();
     debajo.el.style.transform = '';
+    soltarFijos(debajo.el);
+    this.limpiar();
     document.body.classList.remove('o-moviendo');
     this.ocupado = false;
     if (debajo.def.alVolver) debajo.def.alVolver(debajo.el, debajo.p, debajo);
@@ -137,7 +165,7 @@ ACC.atras = () => Nav.atras();
   document.addEventListener('touchmove', e => {
     if (!g) return;
     const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
-    if (!g.on) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) { g = null; return; } if (dx < 8) return; g.on = true; g.deb.el.classList.remove('o-detras'); g.deb.el.style.visibility = ''; document.body.classList.add('o-moviendo'); }
+    if (!g.on) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) { g = null; return; } if (dx < 8) return; g.on = true; Nav.limpiar(); Nav.pila.forEach(x => { if (x !== g.arr && x !== g.deb) x.el.style.visibility = 'hidden'; }); fijar(g.arr.el); fijar(g.deb.el); g.deb.el.classList.remove('o-detras'); g.deb.el.style.visibility = ''; g.deb.el.style.opacity = ''; document.body.classList.add('o-moviendo'); }
     g.x = Math.max(0, dx);
     g.arr.el.style.transform = `translateX(${g.x}px)`;
     g.arr.el.style.boxShadow = '-20px 0 50px rgba(0,0,0,.12)';
@@ -151,7 +179,7 @@ ACC.atras = () => Nav.atras();
     if (!x.on) return;
     if (x.x > innerWidth * .33 || v > .55) { x.arr.el.style.transform = ''; x.deb.el.style.transform = ''; history.back(); Nav.gesto = { x: x.x }; }
     else {
-      animar(x.arr.el, [{ transform: `translateX(${x.x}px)` }, { transform: 'none' }], { duration: 300 }).then(() => { x.arr.el.style.boxShadow = ''; });
+      animar(x.arr.el, [{ transform: `translateX(${x.x}px)` }, { transform: 'none' }], { duration: 300 }).then(() => { x.arr.el.style.boxShadow = ''; soltarFijos(x.arr.el); });
       animar(x.deb.el, [{ transform: x.deb.el.style.transform }, { transform: 'translateX(-28%)' }], { duration: 300 }).then(() => { x.deb.el.classList.add('o-detras'); x.deb.el.style.visibility = 'hidden'; document.body.classList.remove('o-moviendo'); });
       const s = $('.o-somb', x.deb.el); if (s) s.style.opacity = 1;
     }
@@ -182,7 +210,7 @@ const Capa = {
     this.detras();
     animar($('.o-velo', el), [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
     animar(c.hoja, [{ transform: 'translateY(105%)' }, { transform: 'none' }], { duration: 560, easing: CURVA.entrar });
-    Anim.entrar(c.hoja, { retraso: 160, paso: 55 });
+    Anim.entrar(c.hoja, { retraso: 90, paso: 28 });
     $('.o-velo', el).addEventListener('click', () => { if (o.cerrable !== false) this.cerrar(c); });
     el.addEventListener('click', e => {
       const t = e.target.closest('[data-a]'); if (!t || t.classList.contains('o-des')) return;
@@ -194,7 +222,7 @@ const Capa = {
     this.arrastre(c);
     if (o.alAbrir) o.alAbrir(c.hoja, c);
     c.cerrar = () => this.cerrar(c);
-    c.repintar = () => { $('.o-hoja-c', el).innerHTML = typeof o.html === 'function' ? o.html() : o.html; if (o.alAbrir) o.alAbrir(c.hoja, c, true); };
+    c.repintar = () => { morph($('.o-hoja-c', el), typeof o.html === 'function' ? o.html() : o.html); if (o.alAbrir) o.alAbrir(c.hoja, c, true); };
     return c;
   },
   arrastre(c) {
@@ -226,7 +254,7 @@ const Capa = {
     if (!c || c.cerrando) return; c.cerrando = true;
     this.abiertas = this.abiertas.filter(x => x !== c);
     this.detras();
-    if (c.tipo === 'menu') { await animar(c.panel, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.9)' }], { duration: 180, easing: CURVA.salir }); c.el.remove(); return; }
+    if (c.tipo === 'menu') { await animar(c.panel, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 160, easing: CURVA.salir }); c.el.remove(); return; }
     animar($('.o-velo', c.el), [{ opacity: getComputedStyle($('.o-velo', c.el)).opacity }, { opacity: 0 }], { duration: 380 });
     await animar(c.hoja, [{ transform: `translateY(${desde || 0}px)` }, { transform: 'translateY(105%)' }], { duration: 420, easing: CURVA.bajar });
     c.el.remove();
@@ -244,8 +272,8 @@ const Capa = {
     $('#capas').appendChild(el);
     const c = { tipo: 'menu', el, panel: $('.o-menu', el), o: {} };
     this.abiertas.push(c);
-    animar(c.panel, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: CURVA.muelle });
-    $$('.o-menu-f', el).forEach((b, i) => animar(b, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: 60 + i * 35 }));
+    animar(c.panel, [{ opacity: 0, transform: 'scale(.82)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: CURVA.muelle });
+    $$('.o-menu-f', el).forEach((b, i) => animar(b, [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: i * 22 }));
     el.addEventListener('click', e => {
       const b = e.target.closest('.o-menu-f');
       this.cerrar(c);
@@ -274,13 +302,13 @@ function aviso(txt, o) {
   el.className = 'o-aviso';
   el.innerHTML = `${o.ic ? ic(o.ic, 18) : '<span class="o-punto"></span>'}<span>${esc(txt)}</span>${o.accion ? `<button class="o-enlace t">${esc(o.accion.t)}</button>` : ''}`;
   const cont = $('#avisos');
-  while (cont.children.length > 2) cont.firstChild.remove();
+  while (cont.children.length > 1) cont.firstChild.remove();
   cont.appendChild(el);
-  animar(el, [{ opacity: 0, transform: 'translateY(-130%) scale(.9)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: CURVA.muelle });
-  const fuera = () => { if (!el.isConnected) return; animar(el, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-60%) scale(.96)' }], { duration: 260, easing: CURVA.salir }).then(() => el.remove()); };
+  animar(el, [{ opacity: 0, transform: 'translateY(60%) scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 480, easing: CURVA.muelle });
+  const fuera = () => { if (!el.isConnected) return; animar(el, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(40%) scale(.96)' }], { duration: 240, easing: CURVA.salir }).then(() => el.remove()); };
   if (o.accion) $('button', el).onclick = () => { fuera(); o.accion.f(); };
   el.addEventListener('click', e => { if (!e.target.closest('button')) fuera(); });
-  setTimeout(fuera, o.ms || (o.accion ? 5000 : 3200));
+  setTimeout(fuera, o.ms || (o.accion ? 4200 : 2200));
 }
 
 /* ---------- Reloj: los relojes de la cabecera cambian cada minuto (el número rueda) */

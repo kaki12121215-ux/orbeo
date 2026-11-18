@@ -5,6 +5,7 @@ const CURVA = { entrar: 'cubic-bezier(.2,0,0,1)', muelle: 'cubic-bezier(.3,1.2,.
 const mqReducir = matchMedia('(prefers-reduced-motion: reduce)');
 const reducido = () => mqReducir.matches;
 
+const NEUTRO = /^(opacity:1|transform:none|filter:(none|blur\(0(px)?\))|scale:1|translate:none|rotate:none|boxShadow:none)$/;
 /* Web Animations con limpieza: al terminar se fijan los estilos y se cancela (para no pisar estilos posteriores) */
 function animar(el, kf, o) {
   if (!el || !el.animate) return Promise.resolve();
@@ -23,7 +24,13 @@ function animar(el, kf, o) {
   delete fin.offset; delete fin.easing; delete fin.composite;
   const fija = o.fill === 'both' || o.fill === 'forwards';
   return a.finished.then(() => {
-    try { if (fija) for (const k in fin) el.style[k] = typeof fin[k] === 'number' ? String(fin[k]) : fin[k]; } catch (e) { }
+    try {
+      if (fija) for (const k in fin) {
+        const v = String(fin[k]);
+        /* Un valor neutro se borra en vez de escribirse: así no queda una capa transformada que emborrona el texto */
+        el.style[k] = NEUTRO.test(k + ':' + v) ? '' : v;
+      }
+    } catch (e) { }
     try { a.cancel(); } catch (e) { }
   }, () => { });
 }
@@ -37,7 +44,7 @@ const Anim = {
       const tipo = el.dataset.e; const n = Math.min(i++, 8);
       const d = (o.retraso || 0) + n * (o.paso || 60) + (+el.dataset.d || 0);
       if (tipo === 'pop') animar(el, [{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: d, easing: CURVA.muelle });
-      else if (tipo === 'heroe') animar(el, [{ opacity: 0, transform: 'translateY(46px) rotate(4deg) scale(1.04)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: d, easing: CURVA.heroe });
+      else if (tipo === 'heroe') animar(el, [{ opacity: 0, transform: 'translateY(40px) scale(1.03)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: d, easing: CURVA.heroe });
       else if (tipo === 'foto') animar(el, [{ opacity: 0, transform: 'scale(1.12)', filter: 'blur(10px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 1100, delay: d, easing: CURVA.heroe });
       else if (tipo === 'izq') animar(el, [{ opacity: 0, transform: 'translateX(-22px)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: d });
       else if (tipo === 'der') animar(el, [{ opacity: 0, transform: 'translateX(28px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: d });
@@ -92,7 +99,7 @@ const Anim = {
     c.style.cssText = `left:${a.left}px;top:${a.top}px;width:${a.width}px;height:${a.height}px;border-radius:${radA};background-image:${o.imagen ? `url("${o.imagen}")` : getComputedStyle(desde).backgroundImage}`;
     document.body.appendChild(c);
     hacia.style.visibility = 'hidden';
-    const giro = o.giro == null ? 3 : o.giro;
+    const giro = o.giro || 0;
     await animar(c, [
       { left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px', borderRadius: radA, transform: 'rotate(0deg)' },
       { offset: .55, transform: `rotate(${giro}deg)` },
@@ -244,4 +251,115 @@ function logo(s, o) {
     ? `<g class="o-lg-luz"><circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="11" fill="url(#lg-g)"/><circle class="o-lg-b" cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="5.2" fill="var(--acento)"/></g>`
     : `<circle class="o-lg-b" cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="4.4" fill="var(--tinta)"/>`).join('')}
   </svg>`;
+}
+
+/* ============================ REPINTAR SIN PARPADEOS ============================
+   Cambia solo lo que es distinto entre lo que hay en pantalla y el HTML nuevo. Las fotos, los botones y el
+   scroll se quedan donde están: nada desaparece para volver a aparecer. Los hijos con data-id se emparejan
+   por su id; los que llevan data-fijo (mapas) no se tocan. */
+function morph(raiz, html) {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  morphHijos(raiz, t.content);
+}
+function claveNodo(n) { return n.nodeType === 1 ? (n.id ? '#' + n.id : n.dataset && n.dataset.id ? n.tagName + ':' + n.dataset.id + ':' + (n.dataset.a || '') : null) : null; }
+function morphHijos(a, b) {
+  const viejos = Array.from(a.childNodes), nuevos = Array.from(b.childNodes);
+  const porClave = {};
+  viejos.forEach(n => { const k = claveNodo(n); if (k && !porClave[k]) porClave[k] = n; });
+  const usados = new Set();
+  let i = 0;
+  const orden = [];
+  nuevos.forEach(nb => {
+    const k = claveNodo(nb);
+    let na = null;
+    if (k && porClave[k] && !usados.has(porClave[k])) na = porClave[k];
+    else if (!k) {
+      while (i < viejos.length && (usados.has(viejos[i]) || claveNodo(viejos[i]))) i++;
+      const c = viejos[i];
+      if (c && c.nodeType === nb.nodeType && (c.nodeType !== 1 || c.tagName === nb.tagName)) { na = c; i++; }
+    }
+    if (na) { usados.add(na); morphNodo(na, nb); orden.push(na); }
+    else orden.push(nb);
+  });
+  viejos.forEach(n => { if (!usados.has(n)) a.removeChild(n); });
+  orden.forEach((n, j) => { if (a.childNodes[j] !== n) a.insertBefore(n, a.childNodes[j] || null); });
+}
+function morphNodo(a, b) {
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  if (a.nodeType !== 1) return;
+  if (a.hasAttribute('data-fijo') && b.hasAttribute('data-fijo')) return;
+  Array.from(a.attributes).forEach(at => { if (at.name !== 'style' && !b.hasAttribute(at.name)) a.removeAttribute(at.name); });
+  Array.from(b.attributes).forEach(at => { if (at.name !== 'style' && a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value); });
+  /* el estilo del HTML solo se cambia si ha cambiado el HTML (no se pisa lo que deja una animación) */
+  const st = b.getAttribute('style') || '';
+  if (a._st === undefined) a._st = st ? (a.getAttribute('style') || '') : '';
+  if (st !== a._st) { a.setAttribute('style', st); a._st = st; }
+  if (a.tagName === 'INPUT') { const v = b.getAttribute('value') || ''; if (document.activeElement !== a && a.value !== v) a.value = v; return; }
+  if (a.tagName === 'TEXTAREA') { if (document.activeElement !== a && a.value !== b.textContent) a.value = b.textContent; return; }
+  if (a.dataset.part && a.dataset.e === 'titulo') {
+    if (a.textContent.replace(/\s+/g, ' ').trim() === b.textContent.replace(/\s+/g, ' ').trim()) return;
+    delete a.dataset.part; a.innerHTML = b.innerHTML; return;
+  }
+  morphHijos(a, b);
+}
+
+/* ---------- Fotos ya decodificadas antes de enseñarlas (no llegan tarde ni parpadean) */
+const Fotos = {
+  hechas: {}, guardadas: [],
+  una(u) {
+    if (!u) return Promise.resolve();
+    if (this.hechas[u]) return this.hechas[u];
+    const im = new Image(); im.decoding = 'async'; im.src = u;
+    const pr = (im.decode ? im.decode() : new Promise(r => { im.onload = r; im.onerror = r; })).catch(() => { });
+    this.hechas[u] = pr; this.guardadas.push(im); if (this.guardadas.length > 160) this.guardadas.shift();
+    return pr;
+  },
+  /* Espera como mucho «ms»: si la red va lenta, no se bloquea la navegación */
+  varias(us, ms) { const t = Promise.all((us || []).filter(Boolean).map(u => this.una(u))); return ms ? Promise.race([t, espera(ms)]) : t; }
+};
+
+/* ---------- Lo que va fijo en pantalla (barra de pestañas, botones de arriba) mientras la pantalla se mueve.
+   Dentro de una pantalla que se mueve, «fixed» deja de ser fijo: se pasa un momento a «absolute» en su sitio. */
+function fijar(el) {
+  if (!el) return;
+  const er = el.getBoundingClientRect();
+  $$('.o-tabs,.o-pd-bar,.o-pd-mcab', el).forEach(f => {
+    if (f.dataset.fijado) return;
+    const r = f.getBoundingClientRect();
+    f.dataset.fijado = '1';
+    f.style.position = 'absolute'; f.style.top = (el.scrollTop + r.top - er.top) + 'px'; f.style.bottom = 'auto';
+  });
+}
+function soltarFijos(el) {
+  if (!el) return;
+  $$('[data-fijado]', el).forEach(f => { delete f.dataset.fijado; f.style.position = ''; f.style.top = ''; f.style.bottom = ''; });
+}
+
+/* ---------- Listas que cambian (filtros): lo que se queda se desliza a su sitio nuevo, lo que se va se encoge
+   y lo nuevo entra. Nada se queda en blanco. */
+function cambiarLista(cont, html, sel) {
+  const antes = {};
+  const t = document.createElement('template'); t.innerHTML = html;
+  const quedan = {}; Array.from(t.content.querySelectorAll(sel)).forEach(x => { quedan[x.dataset.id] = 1; });
+  const cr = cont.getBoundingClientRect();
+  const fuera = [];
+  $$(sel, cont).forEach(x => {
+    const r = x.getBoundingClientRect(); antes[x.dataset.id] = r;
+    if (!quedan[x.dataset.id]) {
+      const c = x.cloneNode(true);
+      c.style.cssText += `;position:absolute;left:${r.left - cr.left}px;top:${r.top - cr.top}px;width:${r.width}px;margin:0;pointer-events:none;z-index:0`;
+      fuera.push(c);
+    }
+  });
+  morph(cont, html);
+  if (getComputedStyle(cont).position === 'static') cont.style.position = 'relative';
+  fuera.forEach(c => { cont.appendChild(c); animar(c, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 240, easing: CURVA.salir, siempre: true }).then(() => { if (c.parentNode) c.parentNode.removeChild(c); }); });
+  let n = 0;
+  $$(sel, cont).forEach(x => {
+    if (fuera.indexOf(x) >= 0) return;
+    const a = antes[x.dataset.id], b = x.getBoundingClientRect();
+    if (a) { const dx = a.left - b.left, dy = a.top - b.top; if (dx || dy) animar(x, [{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: 480, easing: CURVA.entrar }); }
+    else animar(x, [{ opacity: 0, transform: 'translateY(14px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 440, delay: 120 + Math.min(n++, 6) * 50, easing: CURVA.entrar });
+  });
 }

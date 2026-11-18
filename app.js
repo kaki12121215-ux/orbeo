@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.1 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.2 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -496,6 +496,7 @@ const CURVA = { entrar: 'cubic-bezier(.2,0,0,1)', muelle: 'cubic-bezier(.3,1.2,.
 const mqReducir = matchMedia('(prefers-reduced-motion: reduce)');
 const reducido = () => mqReducir.matches;
 
+const NEUTRO = /^(opacity:1|transform:none|filter:(none|blur\(0(px)?\))|scale:1|translate:none|rotate:none|boxShadow:none)$/;
 /* Web Animations con limpieza: al terminar se fijan los estilos y se cancela (para no pisar estilos posteriores) */
 function animar(el, kf, o) {
   if (!el || !el.animate) return Promise.resolve();
@@ -514,7 +515,13 @@ function animar(el, kf, o) {
   delete fin.offset; delete fin.easing; delete fin.composite;
   const fija = o.fill === 'both' || o.fill === 'forwards';
   return a.finished.then(() => {
-    try { if (fija) for (const k in fin) el.style[k] = typeof fin[k] === 'number' ? String(fin[k]) : fin[k]; } catch (e) { }
+    try {
+      if (fija) for (const k in fin) {
+        const v = String(fin[k]);
+        /* Un valor neutro se borra en vez de escribirse: así no queda una capa transformada que emborrona el texto */
+        el.style[k] = NEUTRO.test(k + ':' + v) ? '' : v;
+      }
+    } catch (e) { }
     try { a.cancel(); } catch (e) { }
   }, () => { });
 }
@@ -528,7 +535,7 @@ const Anim = {
       const tipo = el.dataset.e; const n = Math.min(i++, 8);
       const d = (o.retraso || 0) + n * (o.paso || 60) + (+el.dataset.d || 0);
       if (tipo === 'pop') animar(el, [{ opacity: 0, transform: 'scale(.86)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: d, easing: CURVA.muelle });
-      else if (tipo === 'heroe') animar(el, [{ opacity: 0, transform: 'translateY(46px) rotate(4deg) scale(1.04)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: d, easing: CURVA.heroe });
+      else if (tipo === 'heroe') animar(el, [{ opacity: 0, transform: 'translateY(40px) scale(1.03)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: d, easing: CURVA.heroe });
       else if (tipo === 'foto') animar(el, [{ opacity: 0, transform: 'scale(1.12)', filter: 'blur(10px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 1100, delay: d, easing: CURVA.heroe });
       else if (tipo === 'izq') animar(el, [{ opacity: 0, transform: 'translateX(-22px)' }, { opacity: 1, transform: 'none' }], { duration: 480, delay: d });
       else if (tipo === 'der') animar(el, [{ opacity: 0, transform: 'translateX(28px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: d });
@@ -583,7 +590,7 @@ const Anim = {
     c.style.cssText = `left:${a.left}px;top:${a.top}px;width:${a.width}px;height:${a.height}px;border-radius:${radA};background-image:${o.imagen ? `url("${o.imagen}")` : getComputedStyle(desde).backgroundImage}`;
     document.body.appendChild(c);
     hacia.style.visibility = 'hidden';
-    const giro = o.giro == null ? 3 : o.giro;
+    const giro = o.giro || 0;
     await animar(c, [
       { left: a.left + 'px', top: a.top + 'px', width: a.width + 'px', height: a.height + 'px', borderRadius: radA, transform: 'rotate(0deg)' },
       { offset: .55, transform: `rotate(${giro}deg)` },
@@ -737,6 +744,117 @@ function logo(s, o) {
   </svg>`;
 }
 
+/* ============================ REPINTAR SIN PARPADEOS ============================
+   Cambia solo lo que es distinto entre lo que hay en pantalla y el HTML nuevo. Las fotos, los botones y el
+   scroll se quedan donde están: nada desaparece para volver a aparecer. Los hijos con data-id se emparejan
+   por su id; los que llevan data-fijo (mapas) no se tocan. */
+function morph(raiz, html) {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  morphHijos(raiz, t.content);
+}
+function claveNodo(n) { return n.nodeType === 1 ? (n.id ? '#' + n.id : n.dataset && n.dataset.id ? n.tagName + ':' + n.dataset.id + ':' + (n.dataset.a || '') : null) : null; }
+function morphHijos(a, b) {
+  const viejos = Array.from(a.childNodes), nuevos = Array.from(b.childNodes);
+  const porClave = {};
+  viejos.forEach(n => { const k = claveNodo(n); if (k && !porClave[k]) porClave[k] = n; });
+  const usados = new Set();
+  let i = 0;
+  const orden = [];
+  nuevos.forEach(nb => {
+    const k = claveNodo(nb);
+    let na = null;
+    if (k && porClave[k] && !usados.has(porClave[k])) na = porClave[k];
+    else if (!k) {
+      while (i < viejos.length && (usados.has(viejos[i]) || claveNodo(viejos[i]))) i++;
+      const c = viejos[i];
+      if (c && c.nodeType === nb.nodeType && (c.nodeType !== 1 || c.tagName === nb.tagName)) { na = c; i++; }
+    }
+    if (na) { usados.add(na); morphNodo(na, nb); orden.push(na); }
+    else orden.push(nb);
+  });
+  viejos.forEach(n => { if (!usados.has(n)) a.removeChild(n); });
+  orden.forEach((n, j) => { if (a.childNodes[j] !== n) a.insertBefore(n, a.childNodes[j] || null); });
+}
+function morphNodo(a, b) {
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  if (a.nodeType !== 1) return;
+  if (a.hasAttribute('data-fijo') && b.hasAttribute('data-fijo')) return;
+  Array.from(a.attributes).forEach(at => { if (at.name !== 'style' && !b.hasAttribute(at.name)) a.removeAttribute(at.name); });
+  Array.from(b.attributes).forEach(at => { if (at.name !== 'style' && a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value); });
+  /* el estilo del HTML solo se cambia si ha cambiado el HTML (no se pisa lo que deja una animación) */
+  const st = b.getAttribute('style') || '';
+  if (a._st === undefined) a._st = st ? (a.getAttribute('style') || '') : '';
+  if (st !== a._st) { a.setAttribute('style', st); a._st = st; }
+  if (a.tagName === 'INPUT') { const v = b.getAttribute('value') || ''; if (document.activeElement !== a && a.value !== v) a.value = v; return; }
+  if (a.tagName === 'TEXTAREA') { if (document.activeElement !== a && a.value !== b.textContent) a.value = b.textContent; return; }
+  if (a.dataset.part && a.dataset.e === 'titulo') {
+    if (a.textContent.replace(/\s+/g, ' ').trim() === b.textContent.replace(/\s+/g, ' ').trim()) return;
+    delete a.dataset.part; a.innerHTML = b.innerHTML; return;
+  }
+  morphHijos(a, b);
+}
+
+/* ---------- Fotos ya decodificadas antes de enseñarlas (no llegan tarde ni parpadean) */
+const Fotos = {
+  hechas: {}, guardadas: [],
+  una(u) {
+    if (!u) return Promise.resolve();
+    if (this.hechas[u]) return this.hechas[u];
+    const im = new Image(); im.decoding = 'async'; im.src = u;
+    const pr = (im.decode ? im.decode() : new Promise(r => { im.onload = r; im.onerror = r; })).catch(() => { });
+    this.hechas[u] = pr; this.guardadas.push(im); if (this.guardadas.length > 160) this.guardadas.shift();
+    return pr;
+  },
+  /* Espera como mucho «ms»: si la red va lenta, no se bloquea la navegación */
+  varias(us, ms) { const t = Promise.all((us || []).filter(Boolean).map(u => this.una(u))); return ms ? Promise.race([t, espera(ms)]) : t; }
+};
+
+/* ---------- Lo que va fijo en pantalla (barra de pestañas, botones de arriba) mientras la pantalla se mueve.
+   Dentro de una pantalla que se mueve, «fixed» deja de ser fijo: se pasa un momento a «absolute» en su sitio. */
+function fijar(el) {
+  if (!el) return;
+  const er = el.getBoundingClientRect();
+  $$('.o-tabs,.o-pd-bar,.o-pd-mcab', el).forEach(f => {
+    if (f.dataset.fijado) return;
+    const r = f.getBoundingClientRect();
+    f.dataset.fijado = '1';
+    f.style.position = 'absolute'; f.style.top = (el.scrollTop + r.top - er.top) + 'px'; f.style.bottom = 'auto';
+  });
+}
+function soltarFijos(el) {
+  if (!el) return;
+  $$('[data-fijado]', el).forEach(f => { delete f.dataset.fijado; f.style.position = ''; f.style.top = ''; f.style.bottom = ''; });
+}
+
+/* ---------- Listas que cambian (filtros): lo que se queda se desliza a su sitio nuevo, lo que se va se encoge
+   y lo nuevo entra. Nada se queda en blanco. */
+function cambiarLista(cont, html, sel) {
+  const antes = {};
+  const t = document.createElement('template'); t.innerHTML = html;
+  const quedan = {}; Array.from(t.content.querySelectorAll(sel)).forEach(x => { quedan[x.dataset.id] = 1; });
+  const cr = cont.getBoundingClientRect();
+  const fuera = [];
+  $$(sel, cont).forEach(x => {
+    const r = x.getBoundingClientRect(); antes[x.dataset.id] = r;
+    if (!quedan[x.dataset.id]) {
+      const c = x.cloneNode(true);
+      c.style.cssText += `;position:absolute;left:${r.left - cr.left}px;top:${r.top - cr.top}px;width:${r.width}px;margin:0;pointer-events:none;z-index:0`;
+      fuera.push(c);
+    }
+  });
+  morph(cont, html);
+  if (getComputedStyle(cont).position === 'static') cont.style.position = 'relative';
+  fuera.forEach(c => { cont.appendChild(c); animar(c, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 240, easing: CURVA.salir, siempre: true }).then(() => { if (c.parentNode) c.parentNode.removeChild(c); }); });
+  let n = 0;
+  $$(sel, cont).forEach(x => {
+    if (fuera.indexOf(x) >= 0) return;
+    const a = antes[x.dataset.id], b = x.getBoundingClientRect();
+    if (a) { const dx = a.left - b.left, dy = a.top - b.top; if (dx || dy) animar(x, [{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: 480, easing: CURVA.entrar }); }
+    else animar(x, [{ opacity: 0, transform: 'translateY(14px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 440, delay: 120 + Math.min(n++, 6) * 50, easing: CURVA.entrar });
+  });
+}
+
 /* ---- 03_nav.js ---- */
 /* ============================ NAVEGACIÓN ============================
    Una pila de pantallas. Al avanzar, la nueva entra desde la derecha y la de debajo se retira un poco;
@@ -760,7 +878,9 @@ const Nav = {
     return pa;
   },
   pintar(pa, primera) {
-    pa.el.innerHTML = pa.def.render(pa.p, pa.el, pa);
+    const html = pa.def.render(pa.p, pa.el, pa);
+    /* Al repintar con datos nuevos solo cambia lo distinto: ni parpadean las fotos ni salta el scroll */
+    if (!primera && pa.el.firstChild) morph(pa.el, html); else pa.el.innerHTML = html;
     if (pa.def.alPintar) pa.def.alPintar(pa.el, pa.p, primera, pa);
   },
   click(e, pa) {
@@ -772,21 +892,38 @@ const Nav = {
   },
   async ir(id, p, o) {
     o = o || {};
-    if (this.ocupado) return; this.ocupado = true;
+    if (this.ocupado) return;
     const vieja = this.actual();
+    /* Dos toques seguidos no abren dos veces la misma pantalla */
+    if (vieja && vieja.id === id && JSON.stringify(vieja.p.id) === JSON.stringify((p || {}).id)) return;
+    this.ocupado = true;
+    this.limpiar();
     const nueva = this.crear(id, p);
+    /* Las fotos de arriba se preparan antes de enseñar la pantalla (como mucho 0,35 s) */
+    const urls = $$('[style*="background-image"]', nueva.el).slice(0, 8).map(x => (x.getAttribute('style').match(/url\(['"]?([^'")]+)/) || [])[1]);
+    if (o.vuela && o.vuela.imagen) urls.unshift(o.vuela.imagen);
+    await Fotos.varias(urls, 350);
     nueva.el.style.zIndex = this.pila.length + 2;
     $('#app').appendChild(nueva.el);
     Anim.pildoras(nueva.el);
     this.pila.push(nueva);
     try { history.pushState({ n: this.pila.length }, ''); } catch (e) { }
     document.body.classList.add('o-moviendo');
+    if (vieja) fijar(vieja.el);
     const ent = nueva.def.alEntrar ? () => nueva.def.alEntrar(nueva.el, nueva.p, nueva) : null;
-    if (o.circulo) {
-      /* Revelado circular desde el sitio tocado + la foto que viaja */
+    if (o.vuela) {
+      /* La foto tocada viaja recta hasta su sitio y la pantalla nueva aparece debajo, sin círculos ni giros */
+      const dest = $(o.vuela.hacia, nueva.el);
+      if (vieja) animar(vieja.el, [{ transform: 'none', opacity: 1 }, { transform: 'scale(.96)', opacity: .6 }], { duration: 560, easing: CURVA.entrar });
+      const pr = animar(nueva.el, [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease-out' });
+      Anim.vuela(o.vuela.desde, dest, { ms: 620, imagen: o.vuela.imagen });
+      Anim.entrar(nueva.el, { retraso: 260, paso: 45 });
+      ent && ent();
+      await Promise.all([pr, espera(620)]);
+      if (vieja) vieja.el.style.opacity = '';
+    } else if (o.circulo) {
       if (vieja) animar(vieja.el, [{ transform: 'none' }, { transform: 'scale(.94)' }], { duration: 760, easing: CURVA.entrar });
       const pr = Anim.circulo(nueva.el, o.circulo.x, o.circulo.y, 760);
-      if (o.vuela) { const dest = $(o.vuela.hacia, nueva.el); Anim.vuela(o.vuela.desde, dest, { ms: 700, imagen: o.vuela.imagen }); }
       Anim.entrar(nueva.el, { retraso: 330, paso: 45 });
       ent && ent();
       await pr;
@@ -797,11 +934,16 @@ const Nav = {
       ent && ent();
       await pr;
     }
-    nueva.el.style.boxShadow = ''; nueva.el.style.clipPath = '';
+    nueva.el.style.boxShadow = ''; nueva.el.style.clipPath = ''; nueva.el.style.opacity = '';
     if (vieja) { vieja.el.classList.add('o-detras'); vieja.el.style.visibility = 'hidden'; }
     document.body.classList.remove('o-moviendo');
     this.ocupado = false;
     Sync.programar();
+  },
+  /* Quita del documento cualquier pantalla que ya no esté en la pila (para que nunca asome una vieja) */
+  limpiar() {
+    const vivas = new Set(this.pila.map(x => x.el));
+    $$('#app > .o-pant').forEach(el => { if (!vivas.has(el)) el.parentNode.removeChild(el); });
   },
   sombra(el, on) {
     let s = $('.o-somb', el);
@@ -818,11 +960,15 @@ const Nav = {
     document.body.classList.add('o-moviendo');
     if (this.refPend) { this.refPend = false; this.pintar(debajo, false); }
     const x = desdeGesto ? desdeGesto.x : 0;
+    fijar(vieja.el); fijar(debajo.el);
+    debajo.el.style.opacity = '';
     this.sombra(debajo.el, false);
     animar(debajo.el, [{ transform: desdeGesto ? `translateX(${-28 + x / innerWidth * 28}%)` : (debajo.el.style.transform.indexOf('scale') >= 0 ? 'scale(.94)' : 'translateX(-28%)') }, { transform: 'none' }], { duration: 420, easing: CURVA.entrar });
     await animar(vieja.el, [{ transform: `translateX(${x}px)` }, { transform: 'translateX(100%)' }], { duration: desdeGesto ? 300 : 420, easing: desdeGesto ? CURVA.entrar : 'cubic-bezier(.4,0,.2,1)' });
     vieja.el.remove();
     debajo.el.style.transform = '';
+    soltarFijos(debajo.el);
+    this.limpiar();
     document.body.classList.remove('o-moviendo');
     this.ocupado = false;
     if (debajo.def.alVolver) debajo.def.alVolver(debajo.el, debajo.p, debajo);
@@ -877,7 +1023,7 @@ ACC.atras = () => Nav.atras();
   document.addEventListener('touchmove', e => {
     if (!g) return;
     const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
-    if (!g.on) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) { g = null; return; } if (dx < 8) return; g.on = true; g.deb.el.classList.remove('o-detras'); g.deb.el.style.visibility = ''; document.body.classList.add('o-moviendo'); }
+    if (!g.on) { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) { g = null; return; } if (dx < 8) return; g.on = true; Nav.limpiar(); Nav.pila.forEach(x => { if (x !== g.arr && x !== g.deb) x.el.style.visibility = 'hidden'; }); fijar(g.arr.el); fijar(g.deb.el); g.deb.el.classList.remove('o-detras'); g.deb.el.style.visibility = ''; g.deb.el.style.opacity = ''; document.body.classList.add('o-moviendo'); }
     g.x = Math.max(0, dx);
     g.arr.el.style.transform = `translateX(${g.x}px)`;
     g.arr.el.style.boxShadow = '-20px 0 50px rgba(0,0,0,.12)';
@@ -891,7 +1037,7 @@ ACC.atras = () => Nav.atras();
     if (!x.on) return;
     if (x.x > innerWidth * .33 || v > .55) { x.arr.el.style.transform = ''; x.deb.el.style.transform = ''; history.back(); Nav.gesto = { x: x.x }; }
     else {
-      animar(x.arr.el, [{ transform: `translateX(${x.x}px)` }, { transform: 'none' }], { duration: 300 }).then(() => { x.arr.el.style.boxShadow = ''; });
+      animar(x.arr.el, [{ transform: `translateX(${x.x}px)` }, { transform: 'none' }], { duration: 300 }).then(() => { x.arr.el.style.boxShadow = ''; soltarFijos(x.arr.el); });
       animar(x.deb.el, [{ transform: x.deb.el.style.transform }, { transform: 'translateX(-28%)' }], { duration: 300 }).then(() => { x.deb.el.classList.add('o-detras'); x.deb.el.style.visibility = 'hidden'; document.body.classList.remove('o-moviendo'); });
       const s = $('.o-somb', x.deb.el); if (s) s.style.opacity = 1;
     }
@@ -922,7 +1068,7 @@ const Capa = {
     this.detras();
     animar($('.o-velo', el), [{ opacity: 0 }, { opacity: 1 }], { duration: 300 });
     animar(c.hoja, [{ transform: 'translateY(105%)' }, { transform: 'none' }], { duration: 560, easing: CURVA.entrar });
-    Anim.entrar(c.hoja, { retraso: 160, paso: 55 });
+    Anim.entrar(c.hoja, { retraso: 90, paso: 28 });
     $('.o-velo', el).addEventListener('click', () => { if (o.cerrable !== false) this.cerrar(c); });
     el.addEventListener('click', e => {
       const t = e.target.closest('[data-a]'); if (!t || t.classList.contains('o-des')) return;
@@ -934,7 +1080,7 @@ const Capa = {
     this.arrastre(c);
     if (o.alAbrir) o.alAbrir(c.hoja, c);
     c.cerrar = () => this.cerrar(c);
-    c.repintar = () => { $('.o-hoja-c', el).innerHTML = typeof o.html === 'function' ? o.html() : o.html; if (o.alAbrir) o.alAbrir(c.hoja, c, true); };
+    c.repintar = () => { morph($('.o-hoja-c', el), typeof o.html === 'function' ? o.html() : o.html); if (o.alAbrir) o.alAbrir(c.hoja, c, true); };
     return c;
   },
   arrastre(c) {
@@ -966,7 +1112,7 @@ const Capa = {
     if (!c || c.cerrando) return; c.cerrando = true;
     this.abiertas = this.abiertas.filter(x => x !== c);
     this.detras();
-    if (c.tipo === 'menu') { await animar(c.panel, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.9)' }], { duration: 180, easing: CURVA.salir }); c.el.remove(); return; }
+    if (c.tipo === 'menu') { await animar(c.panel, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 160, easing: CURVA.salir }); c.el.remove(); return; }
     animar($('.o-velo', c.el), [{ opacity: getComputedStyle($('.o-velo', c.el)).opacity }, { opacity: 0 }], { duration: 380 });
     await animar(c.hoja, [{ transform: `translateY(${desde || 0}px)` }, { transform: 'translateY(105%)' }], { duration: 420, easing: CURVA.bajar });
     c.el.remove();
@@ -984,8 +1130,8 @@ const Capa = {
     $('#capas').appendChild(el);
     const c = { tipo: 'menu', el, panel: $('.o-menu', el), o: {} };
     this.abiertas.push(c);
-    animar(c.panel, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: CURVA.muelle });
-    $$('.o-menu-f', el).forEach((b, i) => animar(b, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: 60 + i * 35 }));
+    animar(c.panel, [{ opacity: 0, transform: 'scale(.82)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: CURVA.muelle });
+    $$('.o-menu-f', el).forEach((b, i) => animar(b, [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, delay: i * 22 }));
     el.addEventListener('click', e => {
       const b = e.target.closest('.o-menu-f');
       this.cerrar(c);
@@ -1014,13 +1160,13 @@ function aviso(txt, o) {
   el.className = 'o-aviso';
   el.innerHTML = `${o.ic ? ic(o.ic, 18) : '<span class="o-punto"></span>'}<span>${esc(txt)}</span>${o.accion ? `<button class="o-enlace t">${esc(o.accion.t)}</button>` : ''}`;
   const cont = $('#avisos');
-  while (cont.children.length > 2) cont.firstChild.remove();
+  while (cont.children.length > 1) cont.firstChild.remove();
   cont.appendChild(el);
-  animar(el, [{ opacity: 0, transform: 'translateY(-130%) scale(.9)' }, { opacity: 1, transform: 'none' }], { duration: 560, easing: CURVA.muelle });
-  const fuera = () => { if (!el.isConnected) return; animar(el, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-60%) scale(.96)' }], { duration: 260, easing: CURVA.salir }).then(() => el.remove()); };
+  animar(el, [{ opacity: 0, transform: 'translateY(60%) scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 480, easing: CURVA.muelle });
+  const fuera = () => { if (!el.isConnected) return; animar(el, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(40%) scale(.96)' }], { duration: 240, easing: CURVA.salir }).then(() => el.remove()); };
   if (o.accion) $('button', el).onclick = () => { fuera(); o.accion.f(); };
   el.addEventListener('click', e => { if (!e.target.closest('button')) fuera(); });
-  setTimeout(fuera, o.ms || (o.accion ? 5000 : 3200));
+  setTimeout(fuera, o.ms || (o.accion ? 4200 : 2200));
 }
 
 /* ---------- Reloj: los relojes de la cabecera cambian cada minuto (el número rueda) */
@@ -1384,13 +1530,8 @@ PANT.inicio = {
   },
   alEntrar(el) {
     $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta, 1100));
-  },
-  alDeslizar(el) {
-    /* La foto protagonista se queda un poco atrás y gira apenas al deslizar */
-    const f = $('.o-heroe-foto', el); if (!f || reducido()) return;
-    const y = el.scrollTop;
-    f.style.transform = `translateY(${y * .18}px) scale(${1 + Math.min(y, 300) * .0004})`;
-    const c = $('.o-heroe', el); if (c) c.style.transform = `rotate(${clamp(y * -.006, -2, 0)}deg)`;
+    /* Portadas y caras listas para cuando se abra un viaje */
+    setTimeout(() => Fotos.varias(viajes().map(portadaUrl).concat(lista('personas').map(x => x.foto ? urlMedio(x.foto) : ''))), 300);
   },
   acciones: {
     abrir: (b, e) => abrirViaje(b.dataset.id, b, e),
@@ -1578,7 +1719,7 @@ PANT.viaje = {
     t.alPintar && t.alPintar($('.o-vt', el), v, p, primera, pa);
     Anim.pildora($('.o-tabs', el), $('.o-tab.o-on', el));
   },
-  alEntrar(el, p, pa) { $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta)); },
+  alEntrar(el, p, pa) { $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta)); setTimeout(() => Fotos.varias(fotosViaje(p.id)), 700); },
   alVolver(el, p, pa) { if (pa.sucia) { pa.sucia = false; Nav.pintar(pa, false); } },
   alSalir(el, p) { Mapa.desmontar(el); },
   alMinuto(el, p, pa) { if (p.tab === 'plan') Nav.refrescar(); },
@@ -1587,28 +1728,42 @@ PANT.viaje = {
   restaurarScroll(el, x) { const d = $('.o-dias', el); if (d) d.scrollLeft = x; },
   acciones: {}
 };
+/* Todas las fotos de un viaje, para tenerlas listas al cambiar de día o de pestaña */
+function fotosViaje(vid) {
+  const us = [];
+  paradasDe(vid).forEach(x => (x.fotos || []).forEach(m => us.push(urlMedio(m))));
+  lista('ideas', i => i.viaje === vid).forEach(i => us.push(urlMedio(i.imagen)));
+  lista('medios', m => m.viaje === vid).forEach(m => us.push(urlMedio(m)));
+  return us.filter(Boolean);
+}
 function barraTabs(on) {
   return `<nav class="o-tabs o-vid" data-e="pop" data-d="200"><span class="o-pild"></span>${TAB_LISTA.filter(t => !(ESCRITORIO() && t[0] === 'mapa')).map(([id, n, i]) => `<button class="o-tab t t-s${id === on ? ' o-on' : ''}" data-a="tab" data-t="${id}" aria-label="${n}">${ic(i, 21, 1.7)}<span class="o-tab-n">${n}</span></button>`).join('')}</nav>`;
 }
 /* Cambio de pestaña: la píldora se desliza, la vieja se funde subiendo y la nueva entra escalonada */
 PANT.viaje.acciones.tab = async (b, e, p, pa) => {
   const t = b.dataset.t; if (t === p.tab) { pa.el.scrollTo({ top: 0, behavior: reducido() ? 'auto' : 'smooth' }); return; }
+  if (pa.cambiando) return; pa.cambiando = true;
   const el = pa.el, vt = $('.o-vt', el);
   p.scroll = p.scroll || {}; p.scroll[p.tab] = el.scrollTop;
   $$('.o-tab', el).forEach(x => x.classList.toggle('o-on', x === b));
   Anim.pildora($('.o-tabs', el), b);
-  await animar(vt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 200, easing: CURVA.salir });
+  const v = dato('viajes', p.id);
+  const html = TABS[t].render(v, p);
+  /* Fundido corto: la vieja se va en 140 ms mientras se preparan las fotos de la nueva; nada se queda en blanco */
+  await Promise.all([animar(vt, [{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: CURVA.salir }), Fotos.varias(urlsDe(html), 300)]);
   Mapa.desmontar(el);
   p.tab = t;
-  const v = dato('viajes', p.id);
   vt.dataset.tab = t;
-  vt.innerHTML = TABS[t].render(v, p);
-  vt.style.opacity = ''; vt.style.transform = '';
+  vt.innerHTML = html;
   el.scrollTop = (p.scroll[t] || 0);
   TABS[t].alPintar && TABS[t].alPintar(vt, v, p, true, pa);
-  Anim.entrar(vt, { retraso: 60, paso: 55 });
+  Anim.pildoras(vt);
+  await animar(vt, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: CURVA.entrar });
   $$('[data-cuenta]', vt).forEach(n => Anim.contar(n, n.dataset.cuenta));
+  pa.cambiando = false;
 };
+/* Las fotos que lleva un trozo de HTML (para prepararlas antes de enseñarlo) */
+function urlsDe(html) { const r = [], re = /url\(['"]?([^'")]+)/g; let m; while ((m = re.exec(html)) && r.length < 12) r.push(m[1]); return r; }
 PANT.viaje.acciones.mas = (b, e, p) => {
   const v = dato('viajes', p.id);
   Capa.menu(b, [
@@ -1669,14 +1824,14 @@ TABS.plan = {
       <div class="o-linea-t" data-dia="${p.dia}">
         ${ps.length ? ps.map((x, i) => filaParada(x, i, ps, ah, v)).join('') : `<div class="o-vacio-dia" data-e="pop"><div class="o-vacio-dia-o">${ic('plan', 26, 1.5)}</div><div class="o-t3">Día libre</div><p class="o-nota">${puedoEditar() ? 'Añade la primera parada o pasa una idea guardada.' : 'Todavía no hay nada planeado.'}</p></div>`}
       </div>
-      ${puedoEditar() ? `<div class="o-plan-b" data-e><button class="o-pil o-sec t t-g" data-a="nuevaParada">${ic('plus', 18, 2)}Añadir parada</button>${lista('ideas', i => i.viaje === v.id && !i.parada).length ? `<button class="o-pil o-sec o-peq t" data-a="deIdea">${ic('idea', 17)}De una idea</button>` : ''}</div>` : ''}
+      ${puedoEditar() ? `<div class="o-plan-b" data-e><button class="o-pil o-sec t t-g" data-a="nuevaParada">${ic('plus', 18, 2)}Añadir parada</button>${lista('ideas', i => i.viaje === v.id && !i.parada).length ? `<button class="o-pil o-sec t t-g" data-a="deIdea">${ic('idea', 17)}De una idea</button>` : ''}</div>` : ''}
       <button class="o-peli t t-g" data-a="peli" data-e>
         <span class="o-peli-fs">${(lista('medios', m => m.viaje === v.id && m.dia === p.dia).slice(0, 3).map(m => `<span style="background-image:url('${urlMedio(m)}')"></span>`).join('')) || `<span class="o-peli-v">${ic('film', 22, 1.5)}</span>`}</span>
-        <span class="o-peli-t"><span class="o-t3">Película del día</span><span class="o-nota">${fotosDia ? fotosDia + ' fotos y vídeos · se monta sola' : 'Añade fotos y vídeos y se monta sola'}</span></span>
+        <span class="o-peli-t"><span class="o-t3">Película del día</span><span class="o-nota">${fotosDia ? fotosDia + (fotosDia === 1 ? ' foto' : ' fotos') + ', se monta sola' : 'Añade fotos y se monta sola'}</span></span>
         <span class="o-bt o-lleno">${ic('play', 16, 2)}</span>
       </button>
       </div>`;
-    if (ESCRITORIO()) return `<div class="o-esc"><div class="o-esc-plan">${plan}</div><div class="o-esc-mapa"><div class="o-mapa" id="mapa-esc"></div></div></div>`;
+    if (ESCRITORIO()) return `<div class="o-esc"><div class="o-esc-plan">${plan}</div><div class="o-esc-mapa"><div class="o-mapa" id="mapa-esc" data-fijo></div></div></div>`;
     return plan;
   },
   alPintar(el, v, p, primera, pa) {
@@ -1691,8 +1846,9 @@ TABS.plan = {
   alDeslizar(el, p) {
     const f = $('.o-vcab-foto', el); if (!f || reducido()) return;
     const y = (ESCRITORIO() ? ($('.o-esc-plan', el) || el) : el).scrollTop;
-    f.style.transform = `translateY(${y * .35}px) scale(${1 + Math.max(0, -y) * .002})`;
-    const tx = $('.o-vcab-txt', el); if (tx) tx.style.opacity = Math.max(0, 1 - y / 260);
+    /* Solo un poco de profundidad: la foto se queda algo atrás, sin girar ni encogerse */
+    f.style.transform = y > 0 ? `translateY(${Math.min(y, 500) * .25}px)` : `scale(${1 + Math.min(-y, 200) * .0015})`;
+    const tx = $('.o-vcab-txt', el); if (tx) tx.style.opacity = Math.max(0, 1 - y / 300);
   }
 };
 function filaParada(x, i, ps, ah, v) {
@@ -1705,7 +1861,7 @@ function filaParada(x, i, ps, ah, v) {
     const sigTr = i > 0 ? trayecto(ps[i - 1].lugar, x.lugar) : null;
     const estado = ah.ahora ? 'Ahora' : 'Siguiente';
     const m = minutos(x.hora) - enZona(v.tz).min;
-    const falta = ah.ahora ? (x.fin ? 'Hasta las ' + x.fin : (sig ? 'Hasta las ' + sig.hora : '')) : (m > 0 ? 'En ' + duracion(m) : '');
+    const falta = ah.ahora ? (x.fin ? 'Hasta ' + x.fin : (sig ? 'Hasta ' + sig.hora : '')) : (m > 0 ? 'En ' + duracion(m) : '');
     return `<div class="o-par o-ahora" data-e>
       <div class="o-par-h tn">${esc(x.hora || '')}</div>
       <div class="o-par-n">${nodo}<span class="o-par-l"></span></div>
@@ -1727,28 +1883,30 @@ function filaParada(x, i, ps, ah, v) {
     </button></div>${ent}`;
 }
 Object.assign(PANT.viaje.acciones, {
-  dia: (b, e, p, pa) => {
-    if (b.dataset.d === p.dia) return;
+  dia: async (b, e, p, pa) => {
+    if (b.dataset.d === p.dia || pa.cambiando) return;
+    pa.cambiando = true;
     const viejo = p.dia; p.dia = b.dataset.d;
     const el = pa.el, cont = $('.o-dias', el);
     $$('.o-dia', cont).forEach(x => x.classList.toggle('o-on', x === b));
     Anim.pildora(cont, b);
     const atras = p.dia < viejo;
-    const lt = $('.o-linea-t', el), dc = $('.o-dcab', el);
-    Promise.all([
-      animar(lt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${atras ? 22 : -22}px)` }], { duration: 200, easing: CURVA.salir }),
-      animar(dc, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: 180, easing: CURVA.salir })
-    ]).then(() => {
-      const v = dato('viajes', p.id), vt = $('.o-vt', el);
-      const st = el.scrollTop, sl = cont.scrollLeft;
-      vt.innerHTML = TABS.plan.render(v, p);
-      TABS.plan.alPintar(vt, v, p, false, pa);
-      $('.o-dias', vt).scrollLeft = sl; el.scrollTop = st;
-      const lt2 = $('.o-linea-t', vt), dc2 = $('.o-dcab', vt);
-      animar(dc2, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 420 });
-      animar(lt2, [{ opacity: 0, transform: `translateX(${atras ? -22 : 22}px)` }, { opacity: 1, transform: 'none' }], { duration: 420 });
-      Anim.entrar(lt2, { paso: 50 });
-    });
+    const v = dato('viajes', p.id), vt = $('.o-vt', el);
+    const html = TABS.plan.render(v, p);
+    const lt = $('.o-linea-t', el), dc = $('.o-dcab', el), pb = $('.o-plan-b', el), pe = $('.o-peli', el);
+    await Promise.all([
+      animar(lt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${atras ? 18 : -18}px)` }], { duration: 170, easing: CURVA.salir }),
+      animar(dc, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 150, easing: CURVA.salir }),
+      Fotos.varias(urlsDe(html), 300)
+    ]);
+    const st = el.scrollTop, sl = cont.scrollLeft;
+    /* Solo cambia lo del día: la portada, la tira de días y la barra se quedan quietas */
+    morph(vt, html);
+    TABS.plan.alPintar(vt, v, p, false, pa);
+    cont.scrollLeft = sl; el.scrollTop = st;
+    animar($('.o-dcab', vt), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 380 });
+    await animar($('.o-linea-t', vt), [{ opacity: 0, transform: `translateX(${atras ? -18 : 18}px)` }, { opacity: 1, transform: 'none' }], { duration: 380 });
+    pa.cambiando = false;
   },
   parada: (b, e, p) => {
     const f = $('.o-par-f,.o-ahora-f,.o-carr-f', b) || b;
@@ -1809,7 +1967,8 @@ PANT.parada = {
     const fotos = (x.fotos || []).concat(lista('medios', m => m.parada === x.id));
     return `<div class="o-pd">
       <div class="o-pd-foto" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : `<div class="o-pd-ic">${ic(tp.ic, 54, 1.1)}</div>`}</div>
-      <div class="o-pd-bar"><button class="o-bt o-vido t t-s" data-a="atras">${ic('back', 20)}</button>${puedoEditar() ? `<button class="o-bt o-vido t t-s" data-a="masP">${ic('more', 20, 2.4)}</button>` : ''}</div>
+      <div class="o-pd-mcab"><span class="o-1l">${esc(x.nombre)}</span></div>
+      <div class="o-pd-bar"><button class="o-bt o-vido t t-s" data-a="atras" aria-label="Volver">${ic('back', 20)}</button>${puedoEditar() ? `<button class="o-bt o-vido t t-s" data-a="masP" aria-label="Más">${ic('more', 20, 2.4)}</button>` : ''}</div>
       <div class="o-pd-c">
         <div class="o-cap" data-e>${esc(fechaLarga(x.dia))}${x.hora ? ' · ' + esc(x.hora) + (x.fin ? ' – ' + esc(x.fin) : '') : ''}</div>
         <h1 class="o-t1" data-e="titulo" style="margin-top:8px">${esc(x.nombre)}</h1>
@@ -1820,7 +1979,7 @@ PANT.parada = {
           ${puedoEditar() ? `<button class="o-pil o-sec t t-g o-pd-hecho${x.hecho ? ' o-on' : ''}" data-a="hechoP"><span class="o-casilla">${ic('check', 14, 2.6)}</span>${x.hecho ? 'Hecho' : 'Marcar hecho'}</button>` : ''}
         </div>
         ${x.nota ? `<p class="o-txt o-pd-nota" data-e>${esc(x.nota).replace(/\n/g, '<br>')}</p>` : ''}
-        ${x.lugar && (x.lugar.dir || x.lugar.lat != null) ? `<button class="o-pd-lugar t" data-a="verMapa" data-e><span class="o-pd-mini" id="pd-mini"></span><span><span class="o-nota">Dónde</span><span>${esc(x.lugar.dir || (x.lugar.lat.toFixed(4) + ', ' + x.lugar.lng.toFixed(4)))}</span></span>${ic('fwd', 18)}</button>` : ''}
+        ${x.lugar && (x.lugar.dir || x.lugar.lat != null) ? `<button class="o-pd-lugar t" data-a="verMapa" data-e><span class="o-pd-mini" id="pd-mini" data-fijo></span><span><span class="o-nota">Dónde</span><span>${esc(x.lugar.dir || (x.lugar.lat.toFixed(4) + ', ' + x.lugar.lng.toFixed(4)))}</span></span>${ic('fwd', 18)}</button>` : ''}
         ${(x.enlaces || []).length ? `<div class="o-sec" data-e><span class="o-cap">Enlaces</span></div>${x.enlaces.map(u => `<a class="o-enl t" href="${esc(u)}" target="_blank" rel="noopener" data-e>${ic('link', 18)}<span class="o-1l">${esc(u.replace(/^https?:\/\/(www\.)?/, ''))}</span>${ic('ext', 16)}</a>`).join('')}` : ''}
         <div class="o-sec" data-e><span class="o-cap">Fotos</span><span class="o-nota tn">${fotos.length || ''}</span></div>
         <div class="o-fotos">${fotos.map((m, i) => `<button class="o-foto t" data-a="verFoto" data-i="${i}" data-e="pop" style="background-image:url('${urlMedio(m)}')">${m.tipo === 'video' ? `<span class="o-foto-v">${ic('play', 14, 2)}</span>` : ''}</button>`).join('')}
@@ -1832,9 +1991,11 @@ PANT.parada = {
     const m = $('#pd-mini', el); if (m && x.lugar && x.lugar.lat != null) Mapa.mini(m, x.lugar);
   },
   alDeslizar(el) {
-    const f = $('.o-pd-foto', el); if (!f || reducido()) return;
-    const y = el.scrollTop;
-    f.style.transform = y < 0 ? `scale(${1 - y * .0025})` : `translateY(${y * .4}px) rotate(${Math.min(y * .012, 3)}deg) scale(${1 + y * .0004})`;
+    const f = $('.o-pd-foto', el), y = el.scrollTop;
+    if (f && !reducido()) f.style.transform = y < 0 ? `scale(${1 - y * .0025})` : `translateY(${Math.min(y, 600) * .3}px)`;
+    /* Al bajar, arriba aparece una barra de cristal con el nombre (no choca con el botón de volver) */
+    const lim = (f ? f.offsetHeight : 300) - 120;
+    el.classList.toggle('o-pd-col', y > lim);
   },
   acciones: {
     llegar: (b, e, p) => abrirRuta(dato('paradas', p.id)),
@@ -2173,7 +2334,7 @@ class Teselas {
   ruta(ps) {
     this.lin = ps; this.pintar();
     const pth = $('path', this.svg);
-    if (pth && !reducido()) { const L = pth.getTotalLength(); pth.style.strokeDasharray = L; animar(pth, [{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1200, delay: 250, easing: CURVA.entrar }).then(() => { pth.style.strokeDasharray = ''; }); }
+    if (!reducido()) animar(this.svg, [{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 250 });
   }
   gestos() {
     const pts = new Map(); let ult = null, d0 = 0, vel = [0, 0], tUlt = 0, toque = 0;
@@ -2202,7 +2363,7 @@ function curva(pts) {
   let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
   for (let i = 1; i < pts.length; i++) {
     const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], mx = (x0 + x1) / 2, my = (y0 + y1) / 2, dx = x1 - x0, dy = y1 - y0;
-    d += ` Q${(mx - dy * .18).toFixed(1)} ${(my + dx * .18).toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+    d += ` L${x1.toFixed(1)} ${y1.toFixed(1)}`;
   }
   return d;
 }
@@ -2250,7 +2411,8 @@ const Mapa = {
   },
   async montar(cont, v, dia, o) {
     if (!cont) return; o = o || {};
-    const m = await this.crear(cont); cont._mapa = m;
+    const nuevo = !cont._mapa;
+    const m = cont._mapa || await this.crear(cont); cont._mapa = m;
     const ps = (dia && dia !== 'todos' ? paradasDe(v.id, dia) : paradasDe(v.id)).filter(x => x.lugar && x.lugar.lat != null);
     const ideas = o.ideas ? lista('ideas', i => i.viaje === v.id && !i.parada && i.lugar && i.lugar.lat != null) : [];
     const ah = dia && dia !== 'todos' ? paradaAhora(v, dia, paradasDe(v.id, dia)) : { idx: -1 };
@@ -2259,7 +2421,8 @@ const Mapa = {
       .concat(ideas.map(x => ({ lat: x.lugar.lat, lng: x.lugar.lng, id: x.id, idea: true, html: `<button class="o-mk o-mk-i">${ic('idea', 13, 2)}</button>` })));
     m.marcar(puntos, (p) => o.alTocar && o.alTocar(p));
     if (dia !== 'todos') m.ruta(ps.map(x => ({ lat: x.lugar.lat, lng: x.lugar.lng })));
-    if (puntos.length) m.encuadrar(puntos, o.escritorio ? { t: 60, b: 60, l: 60, r: 60 } : null);
+    if (!nuevo) return m;
+    if (puntos.length) requestAnimationFrame(() => m.encuadrar(puntos, o.escritorio ? { t: 60, b: 60, l: 60, r: 60 } : null));
     else if (v.lat != null) m.centro(v.lat, v.lng, 12);
     return m;
   },
@@ -2267,6 +2430,7 @@ const Mapa = {
   enfocar(x) { const c = $('.o-mapa'); if (c && c._mapa && x.lugar) c._mapa.volar(x.lugar.lat, x.lugar.lng, 16); },
   /* Mapa pequeño fijo para el detalle de una parada */
   mini(el, l) {
+    const clave = l.lat + ',' + l.lng + document.documentElement.dataset.tema; if (el.dataset.ok === clave) return; el.dataset.ok = clave;
     const z = 15, [x, y] = Teselas.px(l.lat, l.lng, z), W = 64, H = 64;
     const oscuro = document.documentElement.dataset.tema === 'oscuro';
     const tx = Math.floor(x / 256), ty = Math.floor(y / 256);
@@ -2281,7 +2445,7 @@ TABS.mapa = {
     p.mdia = p.mdia || p.dia || 'todos';
     const ps = (p.mdia === 'todos' ? paradasDe(v.id) : paradasDe(v.id, p.mdia));
     return `<div class="o-vmapa">
-      <div class="o-mapa" id="mapa-v"></div>
+      <div class="o-mapa" id="mapa-v" data-fijo></div>
       <div class="o-vmapa-bar">
         <button class="o-bt o-vid t t-s" data-a="atras">${ic('back', 20)}</button>
         <div class="o-vmapa-d o-vid o-nodrag"><span class="o-pild"></span><button class="o-md t t-s${p.mdia === 'todos' ? ' o-on' : ''}" data-a="mdia" data-d="todos">Todo</button>${dias.map(d => `<button class="o-md t t-s${p.mdia === d ? ' o-on' : ''}" data-a="mdia" data-d="${d}"><span class="tn">${fecha(d).getUTCDate()}</span></button>`).join('')}</div>
@@ -2416,13 +2580,11 @@ Object.assign(PANT.viaje.acciones, {
     if (b.dataset.f === p.fil) return;
     p.fil = b.dataset.f;
     const f = b.parentNode; $$('.o-fil', f).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(f, b);
-    const viejas = $$('.o-idea', pa.el), v = dato('viajes', p.id);
-    Promise.all(viejas.map((x, i) => animar(x, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.94)' }], { duration: 220, delay: i * 30, easing: CURVA.salir }))).then(() => {
-      const vt = $('.o-vt', pa.el), st = pa.el.scrollTop;
-      vt.innerHTML = TABS.ideas.render(v, p); TABS.ideas.alPintar(vt, v, p);
-      $$('.o-idea,.o-vacio', vt).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 470, delay: i * 55 }));
-      pa.el.scrollTop = st;
-    });
+    const v = dato('viajes', p.id), vt = $('.o-vt', pa.el), st = pa.el.scrollTop;
+    /* Las que se quedan se deslizan a su sitio, las que sobran se encogen y las nuevas entran */
+    cambiarLista(vt, TABS.ideas.render(v, p), '.o-idea');
+    pa.el.scrollTop = st;
+    const vac = $('.o-vacio', vt); if (vac) animar(vac, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 400, delay: 120 });
   },
   idea: (b, e, p) => {
     const x = dato('ideas', b.dataset.id); if (!x || x.cargando) return;

@@ -10,7 +10,8 @@ PANT.parada = {
     const fotos = (x.fotos || []).concat(lista('medios', m => m.parada === x.id));
     return `<div class="o-pd">
       <div class="o-pd-foto" style="${foto ? `background-image:url('${foto}')` : ''}">${foto ? '' : `<div class="o-pd-ic">${ic(tp.ic, 54, 1.1)}</div>`}</div>
-      <div class="o-pd-bar"><button class="o-bt o-vido t t-s" data-a="atras">${ic('back', 20)}</button>${puedoEditar() ? `<button class="o-bt o-vido t t-s" data-a="masP">${ic('more', 20, 2.4)}</button>` : ''}</div>
+      <div class="o-pd-mcab"><span class="o-1l">${esc(x.nombre)}</span></div>
+      <div class="o-pd-bar"><button class="o-bt o-vido t t-s" data-a="atras" aria-label="Volver">${ic('back', 20)}</button>${puedoEditar() ? `<button class="o-bt o-vido t t-s" data-a="masP" aria-label="Más">${ic('more', 20, 2.4)}</button>` : ''}</div>
       <div class="o-pd-c">
         <div class="o-cap" data-e>${esc(fechaLarga(x.dia))}${x.hora ? ' · ' + esc(x.hora) + (x.fin ? ' – ' + esc(x.fin) : '') : ''}</div>
         <h1 class="o-t1" data-e="titulo" style="margin-top:8px">${esc(x.nombre)}</h1>
@@ -21,7 +22,7 @@ PANT.parada = {
           ${puedoEditar() ? `<button class="o-pil o-sec t t-g o-pd-hecho${x.hecho ? ' o-on' : ''}" data-a="hechoP"><span class="o-casilla">${ic('check', 14, 2.6)}</span>${x.hecho ? 'Hecho' : 'Marcar hecho'}</button>` : ''}
         </div>
         ${x.nota ? `<p class="o-txt o-pd-nota" data-e>${esc(x.nota).replace(/\n/g, '<br>')}</p>` : ''}
-        ${x.lugar && (x.lugar.dir || x.lugar.lat != null) ? `<button class="o-pd-lugar t" data-a="verMapa" data-e><span class="o-pd-mini" id="pd-mini"></span><span><span class="o-nota">Dónde</span><span>${esc(x.lugar.dir || (x.lugar.lat.toFixed(4) + ', ' + x.lugar.lng.toFixed(4)))}</span></span>${ic('fwd', 18)}</button>` : ''}
+        ${x.lugar && (x.lugar.dir || x.lugar.lat != null) ? `<button class="o-pd-lugar t" data-a="verMapa" data-e><span class="o-pd-mini" id="pd-mini" data-fijo></span><span><span class="o-nota">Dónde</span><span>${esc(x.lugar.dir || (x.lugar.lat.toFixed(4) + ', ' + x.lugar.lng.toFixed(4)))}</span></span>${ic('fwd', 18)}</button>` : ''}
         ${(x.enlaces || []).length ? `<div class="o-sec" data-e><span class="o-cap">Enlaces</span></div>${x.enlaces.map(u => `<a class="o-enl t" href="${esc(u)}" target="_blank" rel="noopener" data-e>${ic('link', 18)}<span class="o-1l">${esc(u.replace(/^https?:\/\/(www\.)?/, ''))}</span>${ic('ext', 16)}</a>`).join('')}` : ''}
         <div class="o-sec" data-e><span class="o-cap">Fotos</span><span class="o-nota tn">${fotos.length || ''}</span></div>
         <div class="o-fotos">${fotos.map((m, i) => `<button class="o-foto t" data-a="verFoto" data-i="${i}" data-e="pop" style="background-image:url('${urlMedio(m)}')">${m.tipo === 'video' ? `<span class="o-foto-v">${ic('play', 14, 2)}</span>` : ''}</button>`).join('')}
@@ -33,9 +34,11 @@ PANT.parada = {
     const m = $('#pd-mini', el); if (m && x.lugar && x.lugar.lat != null) Mapa.mini(m, x.lugar);
   },
   alDeslizar(el) {
-    const f = $('.o-pd-foto', el); if (!f || reducido()) return;
-    const y = el.scrollTop;
-    f.style.transform = y < 0 ? `scale(${1 - y * .0025})` : `translateY(${y * .4}px) rotate(${Math.min(y * .012, 3)}deg) scale(${1 + y * .0004})`;
+    const f = $('.o-pd-foto', el), y = el.scrollTop;
+    if (f && !reducido()) f.style.transform = y < 0 ? `scale(${1 - y * .0025})` : `translateY(${Math.min(y, 600) * .3}px)`;
+    /* Al bajar, arriba aparece una barra de cristal con el nombre (no choca con el botón de volver) */
+    const lim = (f ? f.offsetHeight : 300) - 120;
+    el.classList.toggle('o-pd-col', y > lim);
   },
   acciones: {
     llegar: (b, e, p) => abrirRuta(dato('paradas', p.id)),

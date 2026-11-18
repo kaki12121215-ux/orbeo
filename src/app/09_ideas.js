@@ -97,13 +97,11 @@ Object.assign(PANT.viaje.acciones, {
     if (b.dataset.f === p.fil) return;
     p.fil = b.dataset.f;
     const f = b.parentNode; $$('.o-fil', f).forEach(x => x.classList.toggle('o-on', x === b)); Anim.pildora(f, b);
-    const viejas = $$('.o-idea', pa.el), v = dato('viajes', p.id);
-    Promise.all(viejas.map((x, i) => animar(x, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.94)' }], { duration: 220, delay: i * 30, easing: CURVA.salir }))).then(() => {
-      const vt = $('.o-vt', pa.el), st = pa.el.scrollTop;
-      vt.innerHTML = TABS.ideas.render(v, p); TABS.ideas.alPintar(vt, v, p);
-      $$('.o-idea,.o-vacio', vt).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], { duration: 470, delay: i * 55 }));
-      pa.el.scrollTop = st;
-    });
+    const v = dato('viajes', p.id), vt = $('.o-vt', pa.el), st = pa.el.scrollTop;
+    /* Las que se quedan se deslizan a su sitio, las que sobran se encogen y las nuevas entran */
+    cambiarLista(vt, TABS.ideas.render(v, p), '.o-idea');
+    pa.el.scrollTop = st;
+    const vac = $('.o-vacio', vt); if (vac) animar(vac, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 400, delay: 120 });
   },
   idea: (b, e, p) => {
     const x = dato('ideas', b.dataset.id); if (!x || x.cargando) return;

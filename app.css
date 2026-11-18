@@ -1,4 +1,4 @@
-/* ORBEO · estilos · versión 1.0.1 */
+/* ORBEO · estilos · versión 1.0.2 */
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 
@@ -650,3 +650,28 @@ html[data-tema="oscuro"] .o-reserva-ic{background:rgba(0,0,0,.08);color:#8A6A43}
 .o-pil.o-demo-b svg{fill:currentColor;stroke:none}
 .o-av-f{color:transparent}
 .o-pil.o-sec{margin:0;align-items:center;justify-content:center}
+/* ---- 1.0.2: saltos, parpadeos y capas ---- */
+/* La píldora que se desliza va siempre por debajo del texto */
+.o-tabs,.o-dias,.o-seg,.o-fils,.o-vmapa-d,.o-horas{isolation:isolate}
+.o-pild{z-index:-1}
+/* Barra de pestañas más abajo, flotando cerca del borde */
+.o-tabs{bottom:calc(var(--sa-b) * .45 + 10px)}
+/* Avisos abajo, encima de la barra: no tapan los botones de arriba */
+#avisos{top:auto;bottom:calc(var(--sa-b) + 96px);flex-direction:column-reverse}
+/* Menú «···» opaco: sin cristal fantasma al abrir o cerrar */
+.o-menu.o-vid{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--capa);border:1px solid var(--linea);box-shadow:0 22px 50px -14px rgba(0,0,0,.32)}
+/* Tarjeta del inicio: sin capas transformadas que emborronen el texto */
+.o-heroe-foto{will-change:auto}
+/* Parada: botones legibles sobre cualquier foto y barra compacta con el nombre al bajar */
+.o-pd-foto::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.38),transparent 34%);pointer-events:none}
+.o-pd-bar .o-bt.o-vido{background:rgba(20,18,16,.34);border-color:rgba(255,255,255,.28);transition:background .3s,color .3s,border-color .3s}
+.o-pd-mcab{position:fixed;left:0;right:0;top:0;height:calc(var(--sa-t) + 66px);padding:var(--sa-t) 76px 0;display:flex;align-items:center;justify-content:center;z-index:4;font-size:16px;font-weight:600;color:var(--tinta);background:var(--cristal-b);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid var(--linea);opacity:0;transform:translateY(-8px);transition:opacity .28s,transform .38s var(--entrar);pointer-events:none}
+.o-pd-col .o-pd-mcab{opacity:1;transform:none}
+.o-pd-col .o-pd-bar .o-bt.o-vido{background:var(--sup);color:var(--tinta);border-color:transparent}
+/* Plan: textos que no se parten y botones iguales */
+.o-ahora-e{white-space:nowrap;overflow:hidden}
+.o-plan-b .o-pil{flex:1;height:50px;font-size:15px}
+.o-peli-t .o-nota{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o-peli-fs span{width:42px;height:56px}
+.o-peli-fs span+span{margin-left:-24px}
+@media (min-width:960px){.o-tabs{bottom:24px}}

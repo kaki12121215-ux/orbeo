@@ -19,7 +19,7 @@ PANT.viaje = {
     t.alPintar && t.alPintar($('.o-vt', el), v, p, primera, pa);
     Anim.pildora($('.o-tabs', el), $('.o-tab.o-on', el));
   },
-  alEntrar(el, p, pa) { $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta)); },
+  alEntrar(el, p, pa) { $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta)); setTimeout(() => Fotos.varias(fotosViaje(p.id)), 700); },
   alVolver(el, p, pa) { if (pa.sucia) { pa.sucia = false; Nav.pintar(pa, false); } },
   alSalir(el, p) { Mapa.desmontar(el); },
   alMinuto(el, p, pa) { if (p.tab === 'plan') Nav.refrescar(); },
@@ -28,28 +28,42 @@ PANT.viaje = {
   restaurarScroll(el, x) { const d = $('.o-dias', el); if (d) d.scrollLeft = x; },
   acciones: {}
 };
+/* Todas las fotos de un viaje, para tenerlas listas al cambiar de día o de pestaña */
+function fotosViaje(vid) {
+  const us = [];
+  paradasDe(vid).forEach(x => (x.fotos || []).forEach(m => us.push(urlMedio(m))));
+  lista('ideas', i => i.viaje === vid).forEach(i => us.push(urlMedio(i.imagen)));
+  lista('medios', m => m.viaje === vid).forEach(m => us.push(urlMedio(m)));
+  return us.filter(Boolean);
+}
 function barraTabs(on) {
   return `<nav class="o-tabs o-vid" data-e="pop" data-d="200"><span class="o-pild"></span>${TAB_LISTA.filter(t => !(ESCRITORIO() && t[0] === 'mapa')).map(([id, n, i]) => `<button class="o-tab t t-s${id === on ? ' o-on' : ''}" data-a="tab" data-t="${id}" aria-label="${n}">${ic(i, 21, 1.7)}<span class="o-tab-n">${n}</span></button>`).join('')}</nav>`;
 }
 /* Cambio de pestaña: la píldora se desliza, la vieja se funde subiendo y la nueva entra escalonada */
 PANT.viaje.acciones.tab = async (b, e, p, pa) => {
   const t = b.dataset.t; if (t === p.tab) { pa.el.scrollTo({ top: 0, behavior: reducido() ? 'auto' : 'smooth' }); return; }
+  if (pa.cambiando) return; pa.cambiando = true;
   const el = pa.el, vt = $('.o-vt', el);
   p.scroll = p.scroll || {}; p.scroll[p.tab] = el.scrollTop;
   $$('.o-tab', el).forEach(x => x.classList.toggle('o-on', x === b));
   Anim.pildora($('.o-tabs', el), b);
-  await animar(vt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 200, easing: CURVA.salir });
+  const v = dato('viajes', p.id);
+  const html = TABS[t].render(v, p);
+  /* Fundido corto: la vieja se va en 140 ms mientras se preparan las fotos de la nueva; nada se queda en blanco */
+  await Promise.all([animar(vt, [{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: CURVA.salir }), Fotos.varias(urlsDe(html), 300)]);
   Mapa.desmontar(el);
   p.tab = t;
-  const v = dato('viajes', p.id);
   vt.dataset.tab = t;
-  vt.innerHTML = TABS[t].render(v, p);
-  vt.style.opacity = ''; vt.style.transform = '';
+  vt.innerHTML = html;
   el.scrollTop = (p.scroll[t] || 0);
   TABS[t].alPintar && TABS[t].alPintar(vt, v, p, true, pa);
-  Anim.entrar(vt, { retraso: 60, paso: 55 });
+  Anim.pildoras(vt);
+  await animar(vt, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: CURVA.entrar });
   $$('[data-cuenta]', vt).forEach(n => Anim.contar(n, n.dataset.cuenta));
+  pa.cambiando = false;
 };
+/* Las fotos que lleva un trozo de HTML (para prepararlas antes de enseñarlo) */
+function urlsDe(html) { const r = [], re = /url\(['"]?([^'")]+)/g; let m; while ((m = re.exec(html)) && r.length < 12) r.push(m[1]); return r; }
 PANT.viaje.acciones.mas = (b, e, p) => {
   const v = dato('viajes', p.id);
   Capa.menu(b, [
@@ -110,14 +124,14 @@ TABS.plan = {
       <div class="o-linea-t" data-dia="${p.dia}">
         ${ps.length ? ps.map((x, i) => filaParada(x, i, ps, ah, v)).join('') : `<div class="o-vacio-dia" data-e="pop"><div class="o-vacio-dia-o">${ic('plan', 26, 1.5)}</div><div class="o-t3">Día libre</div><p class="o-nota">${puedoEditar() ? 'Añade la primera parada o pasa una idea guardada.' : 'Todavía no hay nada planeado.'}</p></div>`}
       </div>
-      ${puedoEditar() ? `<div class="o-plan-b" data-e><button class="o-pil o-sec t t-g" data-a="nuevaParada">${ic('plus', 18, 2)}Añadir parada</button>${lista('ideas', i => i.viaje === v.id && !i.parada).length ? `<button class="o-pil o-sec o-peq t" data-a="deIdea">${ic('idea', 17)}De una idea</button>` : ''}</div>` : ''}
+      ${puedoEditar() ? `<div class="o-plan-b" data-e><button class="o-pil o-sec t t-g" data-a="nuevaParada">${ic('plus', 18, 2)}Añadir parada</button>${lista('ideas', i => i.viaje === v.id && !i.parada).length ? `<button class="o-pil o-sec t t-g" data-a="deIdea">${ic('idea', 17)}De una idea</button>` : ''}</div>` : ''}
       <button class="o-peli t t-g" data-a="peli" data-e>
         <span class="o-peli-fs">${(lista('medios', m => m.viaje === v.id && m.dia === p.dia).slice(0, 3).map(m => `<span style="background-image:url('${urlMedio(m)}')"></span>`).join('')) || `<span class="o-peli-v">${ic('film', 22, 1.5)}</span>`}</span>
-        <span class="o-peli-t"><span class="o-t3">Película del día</span><span class="o-nota">${fotosDia ? fotosDia + ' fotos y vídeos · se monta sola' : 'Añade fotos y vídeos y se monta sola'}</span></span>
+        <span class="o-peli-t"><span class="o-t3">Película del día</span><span class="o-nota">${fotosDia ? fotosDia + (fotosDia === 1 ? ' foto' : ' fotos') + ', se monta sola' : 'Añade fotos y se monta sola'}</span></span>
         <span class="o-bt o-lleno">${ic('play', 16, 2)}</span>
       </button>
       </div>`;
-    if (ESCRITORIO()) return `<div class="o-esc"><div class="o-esc-plan">${plan}</div><div class="o-esc-mapa"><div class="o-mapa" id="mapa-esc"></div></div></div>`;
+    if (ESCRITORIO()) return `<div class="o-esc"><div class="o-esc-plan">${plan}</div><div class="o-esc-mapa"><div class="o-mapa" id="mapa-esc" data-fijo></div></div></div>`;
     return plan;
   },
   alPintar(el, v, p, primera, pa) {
@@ -132,8 +146,9 @@ TABS.plan = {
   alDeslizar(el, p) {
     const f = $('.o-vcab-foto', el); if (!f || reducido()) return;
     const y = (ESCRITORIO() ? ($('.o-esc-plan', el) || el) : el).scrollTop;
-    f.style.transform = `translateY(${y * .35}px) scale(${1 + Math.max(0, -y) * .002})`;
-    const tx = $('.o-vcab-txt', el); if (tx) tx.style.opacity = Math.max(0, 1 - y / 260);
+    /* Solo un poco de profundidad: la foto se queda algo atrás, sin girar ni encogerse */
+    f.style.transform = y > 0 ? `translateY(${Math.min(y, 500) * .25}px)` : `scale(${1 + Math.min(-y, 200) * .0015})`;
+    const tx = $('.o-vcab-txt', el); if (tx) tx.style.opacity = Math.max(0, 1 - y / 300);
   }
 };
 function filaParada(x, i, ps, ah, v) {
@@ -146,7 +161,7 @@ function filaParada(x, i, ps, ah, v) {
     const sigTr = i > 0 ? trayecto(ps[i - 1].lugar, x.lugar) : null;
     const estado = ah.ahora ? 'Ahora' : 'Siguiente';
     const m = minutos(x.hora) - enZona(v.tz).min;
-    const falta = ah.ahora ? (x.fin ? 'Hasta las ' + x.fin : (sig ? 'Hasta las ' + sig.hora : '')) : (m > 0 ? 'En ' + duracion(m) : '');
+    const falta = ah.ahora ? (x.fin ? 'Hasta ' + x.fin : (sig ? 'Hasta ' + sig.hora : '')) : (m > 0 ? 'En ' + duracion(m) : '');
     return `<div class="o-par o-ahora" data-e>
       <div class="o-par-h tn">${esc(x.hora || '')}</div>
       <div class="o-par-n">${nodo}<span class="o-par-l"></span></div>
@@ -168,28 +183,30 @@ function filaParada(x, i, ps, ah, v) {
     </button></div>${ent}`;
 }
 Object.assign(PANT.viaje.acciones, {
-  dia: (b, e, p, pa) => {
-    if (b.dataset.d === p.dia) return;
+  dia: async (b, e, p, pa) => {
+    if (b.dataset.d === p.dia || pa.cambiando) return;
+    pa.cambiando = true;
     const viejo = p.dia; p.dia = b.dataset.d;
     const el = pa.el, cont = $('.o-dias', el);
     $$('.o-dia', cont).forEach(x => x.classList.toggle('o-on', x === b));
     Anim.pildora(cont, b);
     const atras = p.dia < viejo;
-    const lt = $('.o-linea-t', el), dc = $('.o-dcab', el);
-    Promise.all([
-      animar(lt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${atras ? 22 : -22}px)` }], { duration: 200, easing: CURVA.salir }),
-      animar(dc, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: 180, easing: CURVA.salir })
-    ]).then(() => {
-      const v = dato('viajes', p.id), vt = $('.o-vt', el);
-      const st = el.scrollTop, sl = cont.scrollLeft;
-      vt.innerHTML = TABS.plan.render(v, p);
-      TABS.plan.alPintar(vt, v, p, false, pa);
-      $('.o-dias', vt).scrollLeft = sl; el.scrollTop = st;
-      const lt2 = $('.o-linea-t', vt), dc2 = $('.o-dcab', vt);
-      animar(dc2, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 420 });
-      animar(lt2, [{ opacity: 0, transform: `translateX(${atras ? -22 : 22}px)` }, { opacity: 1, transform: 'none' }], { duration: 420 });
-      Anim.entrar(lt2, { paso: 50 });
-    });
+    const v = dato('viajes', p.id), vt = $('.o-vt', el);
+    const html = TABS.plan.render(v, p);
+    const lt = $('.o-linea-t', el), dc = $('.o-dcab', el), pb = $('.o-plan-b', el), pe = $('.o-peli', el);
+    await Promise.all([
+      animar(lt, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${atras ? 18 : -18}px)` }], { duration: 170, easing: CURVA.salir }),
+      animar(dc, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 150, easing: CURVA.salir }),
+      Fotos.varias(urlsDe(html), 300)
+    ]);
+    const st = el.scrollTop, sl = cont.scrollLeft;
+    /* Solo cambia lo del día: la portada, la tira de días y la barra se quedan quietas */
+    morph(vt, html);
+    TABS.plan.alPintar(vt, v, p, false, pa);
+    cont.scrollLeft = sl; el.scrollTop = st;
+    animar($('.o-dcab', vt), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 380 });
+    await animar($('.o-linea-t', vt), [{ opacity: 0, transform: `translateX(${atras ? -18 : 18}px)` }, { opacity: 1, transform: 'none' }], { duration: 380 });
+    pa.cambiando = false;
   },
   parada: (b, e, p) => {
     const f = $('.o-par-f,.o-ahora-f,.o-carr-f', b) || b;

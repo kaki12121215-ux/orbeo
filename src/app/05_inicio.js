@@ -155,13 +155,8 @@ PANT.inicio = {
   },
   alEntrar(el) {
     $$('[data-cuenta]', el).forEach(n => Anim.contar(n, n.dataset.cuenta, 1100));
-  },
-  alDeslizar(el) {
-    /* La foto protagonista se queda un poco atrás y gira apenas al deslizar */
-    const f = $('.o-heroe-foto', el); if (!f || reducido()) return;
-    const y = el.scrollTop;
-    f.style.transform = `translateY(${y * .18}px) scale(${1 + Math.min(y, 300) * .0004})`;
-    const c = $('.o-heroe', el); if (c) c.style.transform = `rotate(${clamp(y * -.006, -2, 0)}deg)`;
+    /* Portadas y caras listas para cuando se abra un viaje */
+    setTimeout(() => Fotos.varias(viajes().map(portadaUrl).concat(lista('personas').map(x => x.foto ? urlMedio(x.foto) : ''))), 300);
   },
   acciones: {
     abrir: (b, e) => abrirViaje(b.dataset.id, b, e),
