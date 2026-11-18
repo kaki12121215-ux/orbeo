@@ -1,11 +1,11 @@
-/* ORBEO · app · versión 1.0.6 · se genera con src/build.js a partir de src/app */
+/* ORBEO · app · versión 1.0.7 · se genera con src/build.js a partir de src/app */
 (function () {
 'use strict';
 /* ---- 00_base.js ---- */
 /* ============================ BASE ============================
    Orbeo: viajes que se planean juntos. App web instalable (iPhone y ordenador).
    Los datos viven en el móvil y se sincronizan con un script de Google (Codigo.gs) dentro de una hoja. */
-const VERSION = '1.0.6';
+const VERSION = '1.0.7';
 const MIN_SCRIPT = '1.0.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -403,15 +403,21 @@ async function bajarArchivo(fid) {
 /* Medios (fotos, vídeos, archivos de documentos): «m» es { id, fid, demo, url } */
 const bajando = {};
 /* Las fotos originales de Wikimedia pueden pesar 20 MB: el iPhone las deja a medias. Se piden a 1280 px */
-function fotoLigera(u) {
+function fotoLigera(u, w) {
+  w = w || 1280;
+  /* Fotos de Google: se pide el ancho justo */
+  if (/googleusercontent\.com|googleapis\.com/.test(u || '')) return String(u).replace(/maxWidthPx=\d+/, 'maxWidthPx=' + w).replace(/=s\d+(-w\d+)?(-h\d+)?$/, '=s' + w);
+  /* Miniatura de Wikipedia ya hecha: se cambia el ancho */
+  const th = /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/[^/]+\/thumb\/.+\/)\d+px-([^/]+)$/.exec(u || '');
+  if (th) return th[1] + w + 'px-' + th[2];
   const x = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/(commons|[a-z]{2,3})\/([0-9a-f])\/([0-9a-f]{2})\/([^/?#]+)$/.exec(u || '');
   if (!x || /\.svg$/i.test(x[4])) return u;
-  return `https://upload.wikimedia.org/wikipedia/${x[1]}/thumb/${x[2]}/${x[3]}/${x[4]}/1280px-${x[4]}${/\.tiff?$/i.test(x[4]) ? '.jpg' : ''}`;
+  return `https://upload.wikimedia.org/wikipedia/${x[1]}/thumb/${x[2]}/${x[3]}/${x[4]}/${w}px-${x[4]}${/\.tiff?$/i.test(x[4]) ? '.jpg' : ''}`;
 }
-function urlMedio(m) {
+function urlMedio(m, w) {
   if (!m) return '';
   if (m.demo) return 'img/demo/' + m.demo + '.jpg';
-  if (m.url) return fotoLigera(m.url);
+  if (m.url) return fotoLigera(m.url, w);
   const k = m.mid || m.id || m.fid;
   if (S.imgs[k]) return S.imgs[k];
   if (!bajando[k]) {
@@ -774,7 +780,9 @@ function morph(raiz, html) {
   t.innerHTML = html;
   morphHijos(raiz, t.content);
 }
-function claveNodo(n) { return n.nodeType === 1 ? (n.id ? '#' + n.id : n.dataset && n.dataset.id ? n.tagName + ':' + n.dataset.id + ':' + (n.dataset.a || '') : null) : null; }
+/* La clave lleva la primera clase: un evento del calendario no se reutiliza como fila del itinerario (se llevaría su altura) */
+function claseNodo(n) { return n.nodeType === 1 && n.classList ? (n.classList[0] || '') : ''; }
+function claveNodo(n) { return n.nodeType === 1 ? (n.id ? '#' + n.id : n.dataset && n.dataset.id ? n.tagName + ':' + claseNodo(n) + ':' + n.dataset.id + ':' + (n.dataset.a || '') : null) : null; }
 function morphHijos(a, b) {
   const viejos = Array.from(a.childNodes), nuevos = Array.from(b.childNodes);
   const porClave = {};
@@ -789,7 +797,7 @@ function morphHijos(a, b) {
     else if (!k) {
       while (i < viejos.length && (usados.has(viejos[i]) || claveNodo(viejos[i]))) i++;
       const c = viejos[i];
-      if (c && c.nodeType === nb.nodeType && (c.nodeType !== 1 || c.tagName === nb.tagName)) { na = c; i++; }
+      if (c && c.nodeType === nb.nodeType && (c.nodeType !== 1 || (c.tagName === nb.tagName && claseNodo(c) === claseNodo(nb)))) { na = c; i++; }
     }
     if (na) { usados.add(na); morphNodo(na, nb); orden.push(na); }
     else orden.push(nb);
@@ -1347,7 +1355,8 @@ function paradaAhora(v, dia, ps) {
   const prox = ps.findIndex(p => !p.hecho && (minutos(p.hora) ?? 9999) > h.min);
   return { idx: prox, ahora: false };
 }
-function fotoParada(p) { return p && p.fotos && p.fotos[0] ? urlMedio(p.fotos[0]) : ''; }
+/* w: ancho en píxeles; para los círculos pequeños se pide una foto pequeña y carga mucho antes */
+function fotoParada(p, w) { return p && p.fotos && p.fotos[0] ? urlMedio(p.fotos[0], w) : ''; }
 function portadaUrl(v) {
   if (!v) return '';
   if (v.portada) return urlMedio(v.portada);
@@ -2047,7 +2056,7 @@ function calDia(v, dia, ps) {
       ${horas.map(h => `<div class="o-cal-h" style="top:${y(h * 60)}px"><span class="tn">${String(h).padStart(2, '0')}:00</span></div>`).join('')}
       <div class="o-cal-evs">
       ${ev.map(e => {
-        const x = e.x, foto = fotoParada(x), alto = y(e.b) - y(e.a) - 4;
+        const x = e.x, foto = fotoParada(x, 330), alto = y(e.b) - y(e.a) - 4;
         return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
           ${foto && alto >= 54 && e.n < 3 ? `<span class="o-cal-f" style="background-image:url('${foto}')"></span>` : ''}
           <span class="o-cal-tx"><span class="o-cal-n">${esc(x.nombre)}</span><span class="o-cal-s tn">${esc(x.hora)}${x.fin ? ' – ' + esc(x.fin) : ''}${alto >= 70 && x.lugar && x.lugar.dir ? ' · ' + esc(x.lugar.dir.split(',')[0]) : ''}</span></span>
@@ -2060,7 +2069,7 @@ function calDia(v, dia, ps) {
   </div>`;
 }
 function filaParada(x, i, ps, ah, v) {
-  const foto = fotoParada(x), tp = tipoDe(x.tipo);
+  const foto = fotoParada(x, 330), tp = tipoDe(x.tipo);
   const es = i === ah.idx, pasado = x.hecho;
   const sig = ps[i + 1], tr = sig ? trayecto(x.lugar, sig.lugar) : null;
   const ent = tr ? `<div class="o-tray" data-e><span class="o-tray-l"></span><span class="o-tray-c">${ic(tr.modo === 'pie' ? 'walk' : tr.modo === 'tren' ? 'train' : 'bus', 14, 1.8)}${tr.modo === 'pie' ? 'A pie' : tr.modo === 'tren' ? 'En tren' : 'En transporte'} · ${duracion(tr.min)}</span></div>` : (sig ? '<div class="o-tray o-tray-v" data-e><span class="o-tray-l"></span></div>' : '');
@@ -2460,7 +2469,7 @@ const Lugar = {
     try {
       if (!red.length) {
         const bias = o.cerca && o.cerca.lat != null ? `&lat=${o.cerca.lat}&lon=${o.cerca.lng}` : '';
-        const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6${bias}${o.ciudades ? '&osm_tag=place' : ''}`);
+        const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=en${bias}${o.ciudades ? '&osm_tag=place' : ''}`);
         const j = await r.json();
         red = (j.features || []).map(f => {
           const p = f.properties || {};
@@ -2493,7 +2502,20 @@ const Lugar = {
     if (s.pid && claveMaps()) { const c = await this.completar(Object.assign({}, s, { lat: null })); if (c.fotoG) return c.fotoG; }
     /* Sin ficha de Google: Wikipedia por el nombre y, si no, por la ciudad */
     const u = await this.fotoWiki(s.n); if (u) return u;
+    if (s.lat != null) { const c = await this.fotoCerca(s.lat, s.lng); if (c) return c; }
     for (const t of String(s.sub || '').split(',').map(x => x.trim()).filter(x => x && !/\d/.test(x)).reverse().slice(1, 3).reverse()) { const v = await this.fotoWiki(t); if (v) return v; }
+    return '';
+  },
+  /* Wikipedia: la foto del sitio conocido más cercano (a menos de 1,5 km) */
+  async fotoCerca(lat, lng) {
+    const MALA = /map|mapa|flag|bandera|escudo|logo|seal|emblem|locator|location|\.svg/i;
+    for (const idioma of ['en', 'es']) {
+      try {
+        const r = await fetch(`https://${idioma}.wikipedia.org/w/api.php?action=query&generator=geosearch&ggscoord=${lat}|${lng}&ggsradius=1500&ggslimit=15&prop=pageimages|coordinates&piprop=thumbnail|original&pithumbsize=1280&format=json&origin=*`);
+        const ps = Object.values(((await r.json()).query || {}).pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+        for (const p of ps) { const o = p.original; if (o && o.width >= 700 && o.width >= o.height * .8 && !MALA.test(o.source)) return (p.thumbnail && p.thumbnail.source) || fotoLigera(o.source); }
+      } catch (e) { }
+    }
     return '';
   },
   /* Wikipedia: la foto principal del artículo; si es un mapa o una bandera (países), la primera foto de verdad */
@@ -2526,11 +2548,16 @@ function tipoOsm(k, v) { if (k === 'amenity' && /restaurant|cafe|bar|pub|fast_fo
 function nombrePais(c) { try { return new Intl.DisplayNames(['es'], { type: 'region' }).of(c); } catch (e) { return c; } }
 
 /* ---------- Mapa propio con teselas (sin clave) */
+/* Teselas de Esri (gris claro / gris oscuro), sin clave; los nombres van en una capa aparte encima */
+function tesela(z, x, y, oscuro) {
+  const s = `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${oscuro ? 'Dark' : 'Light'}_Gray_`;
+  return { base: `${s}Base/MapServer/tile/${z}/${y}/${x}`, nombres: `${s}Reference/MapServer/tile/${z}/${y}/${x}` };
+}
 class Teselas {
   constructor(cont, o) {
     this.c = cont; this.o = o || {}; this.z = 13; this.cx = 0; this.cy = 0; this.mks = []; this.imgs = {};
     cont.classList.add('o-tm');
-    cont.innerHTML = `<div class="o-tm-capa"><div class="o-tm-tes"></div><svg class="o-tm-ruta"></svg><div class="o-tm-mks"></div></div><div class="o-tm-atr">© OpenStreetMap · © CARTO</div>`;
+    cont.innerHTML = `<div class="o-tm-capa"><div class="o-tm-tes"></div><svg class="o-tm-ruta"></svg><div class="o-tm-mks"></div></div><div class="o-tm-atr">© Esri · OpenStreetMap</div>`;
     this.capa = $('.o-tm-capa', cont); this.tes = $('.o-tm-tes', cont); this.svg = $('.o-tm-ruta', cont); this.mkc = $('.o-tm-mks', cont);
     this.gestos();
     this.ro = new ResizeObserver(() => this.pintar()); this.ro.observe(cont);
@@ -2580,9 +2607,9 @@ class Teselas {
       const xx = ((tx % n) + n) % n, k = z + '/' + tx + '/' + ty; vistos[k] = 1;
       let im = this.imgs[k];
       if (!im) {
-        im = document.createElement('img'); im.className = 'o-tm-t'; im.alt = ''; im.decoding = 'async';
-        im.onload = () => im.classList.add('o-ok');
-        im.src = `https://${'abcd'[(xx + ty) % 4]}.basemaps.cartocdn.com/${oscuro ? 'dark_all' : 'light_all'}/${z}/${xx}/${ty}@2x.png`;
+        im = document.createElement('span'); im.className = 'o-tm-t';
+        const t = tesela(z, xx, ty, oscuro), pre = new Image(); pre.onload = () => im.classList.add('o-ok'); pre.src = t.base;
+        im.style.backgroundImage = `url('${t.nombres}'),url('${t.base}')`;
         this.imgs[k] = im; this.tes.appendChild(im);
       }
       im.style.transform = `translate(${tx * 256 - x0}px,${ty * 256 - y0}px)`;
@@ -2708,7 +2735,8 @@ const Mapa = {
     const z = 15, [x, y] = Teselas.px(l.lat, l.lng, z), W = 64, H = 64;
     const oscuro = document.documentElement.dataset.tema === 'oscuro';
     const tx = Math.floor(x / 256), ty = Math.floor(y / 256);
-    el.innerHTML = `<img alt="" src="https://a.basemaps.cartocdn.com/${oscuro ? 'dark_all' : 'light_all'}/${z}/${tx}/${ty}@2x.png" style="transform:translate(${W / 2 - (x - tx * 256)}px,${H / 2 - (y - ty * 256)}px)"><span class="o-punto o-g"></span>`;
+    const t = tesela(z, tx, ty, oscuro);
+    el.innerHTML = `<span class="o-tm-t o-ok" style="background-image:url('${t.nombres}'),url('${t.base}');transform:translate(${W / 2 - (x - tx * 256)}px,${H / 2 - (y - ty * 256)}px)"><span class="o-punto o-g"></span>`;
   }
 };
 
@@ -2726,7 +2754,7 @@ TABS.mapa = {
       </div>
       <div class="o-vmapa-zoom"><button class="o-bt o-vid t t-s" data-a="zmas">${ic('plus', 18)}</button><button class="o-bt o-vid t t-s" data-a="zmenos"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12h14"/></svg></button></div>
       <div class="o-carr">${ps.length ? ps.map((x, i) => {
-        const f = fotoParada(x), tp = tipoDe(x.tipo);
+        const f = fotoParada(x, 330), tp = tipoDe(x.tipo);
         return `<button class="o-carr-c o-vid t t-g" data-a="mfoco" data-id="${x.id}" data-e="der"><span class="o-carr-f" style="${f ? `background-image:url('${f}')` : ''}">${f ? '' : ic(tp.ic, 22, 1.5)}</span><span class="o-carr-t"><span class="o-cap">${p.mdia === 'todos' ? esc(fechaCorta(x.dia)) + ' · ' : ''}${esc(x.hora || 'Sin hora')}</span><span class="o-carr-n">${esc(x.nombre)}</span><span class="o-nota o-1l">${esc(x.lugar && x.lugar.dir ? x.lugar.dir : tp.t)}</span></span></button>`;
       }).join('') : `<div class="o-carr-c o-vid o-carr-vacio" data-e="der"><span class="o-nota">No hay paradas con sitio en el mapa este día.</span></div>`}</div>
     </div>`;

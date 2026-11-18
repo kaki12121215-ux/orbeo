@@ -188,7 +188,7 @@ function calDia(v, dia, ps) {
       ${horas.map(h => `<div class="o-cal-h" style="top:${y(h * 60)}px"><span class="tn">${String(h).padStart(2, '0')}:00</span></div>`).join('')}
       <div class="o-cal-evs">
       ${ev.map(e => {
-        const x = e.x, foto = fotoParada(x), alto = y(e.b) - y(e.a) - 4;
+        const x = e.x, foto = fotoParada(x, 330), alto = y(e.b) - y(e.a) - 4;
         return `<button class="o-cal-ev t${x.hecho ? ' o-hecho' : ''}${alto < 54 ? ' o-corto' : ''}" data-a="parada" data-id="${x.id}" data-e="pop" style="--cc:${colorCat(x.tipo)};top:${y(e.a) + 2}px;height:${alto}px;left:calc(${e.col} * 100% / ${e.n});width:calc(100% / ${e.n} - 4px)">
           ${foto && alto >= 54 && e.n < 3 ? `<span class="o-cal-f" style="background-image:url('${foto}')"></span>` : ''}
           <span class="o-cal-tx"><span class="o-cal-n">${esc(x.nombre)}</span><span class="o-cal-s tn">${esc(x.hora)}${x.fin ? ' – ' + esc(x.fin) : ''}${alto >= 70 && x.lugar && x.lugar.dir ? ' · ' + esc(x.lugar.dir.split(',')[0]) : ''}</span></span>
@@ -201,7 +201,7 @@ function calDia(v, dia, ps) {
   </div>`;
 }
 function filaParada(x, i, ps, ah, v) {
-  const foto = fotoParada(x), tp = tipoDe(x.tipo);
+  const foto = fotoParada(x, 330), tp = tipoDe(x.tipo);
   const es = i === ah.idx, pasado = x.hecho;
   const sig = ps[i + 1], tr = sig ? trayecto(x.lugar, sig.lugar) : null;
   const ent = tr ? `<div class="o-tray" data-e><span class="o-tray-l"></span><span class="o-tray-c">${ic(tr.modo === 'pie' ? 'walk' : tr.modo === 'tren' ? 'train' : 'bus', 14, 1.8)}${tr.modo === 'pie' ? 'A pie' : tr.modo === 'tren' ? 'En tren' : 'En transporte'} · ${duracion(tr.min)}</span></div>` : (sig ? '<div class="o-tray o-tray-v" data-e><span class="o-tray-l"></span></div>' : '');

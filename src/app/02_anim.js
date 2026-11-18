@@ -271,7 +271,9 @@ function morph(raiz, html) {
   t.innerHTML = html;
   morphHijos(raiz, t.content);
 }
-function claveNodo(n) { return n.nodeType === 1 ? (n.id ? '#' + n.id : n.dataset && n.dataset.id ? n.tagName + ':' + n.dataset.id + ':' + (n.dataset.a || '') : null) : null; }
+/* La clave lleva la primera clase: un evento del calendario no se reutiliza como fila del itinerario (se llevaría su altura) */
+function claseNodo(n) { return n.nodeType === 1 && n.classList ? (n.classList[0] || '') : ''; }
+function claveNodo(n) { return n.nodeType === 1 ? (n.id ? '#' + n.id : n.dataset && n.dataset.id ? n.tagName + ':' + claseNodo(n) + ':' + n.dataset.id + ':' + (n.dataset.a || '') : null) : null; }
 function morphHijos(a, b) {
   const viejos = Array.from(a.childNodes), nuevos = Array.from(b.childNodes);
   const porClave = {};
@@ -286,7 +288,7 @@ function morphHijos(a, b) {
     else if (!k) {
       while (i < viejos.length && (usados.has(viejos[i]) || claveNodo(viejos[i]))) i++;
       const c = viejos[i];
-      if (c && c.nodeType === nb.nodeType && (c.nodeType !== 1 || c.tagName === nb.tagName)) { na = c; i++; }
+      if (c && c.nodeType === nb.nodeType && (c.nodeType !== 1 || (c.tagName === nb.tagName && claseNodo(c) === claseNodo(nb)))) { na = c; i++; }
     }
     if (na) { usados.add(na); morphNodo(na, nb); orden.push(na); }
     else orden.push(nb);

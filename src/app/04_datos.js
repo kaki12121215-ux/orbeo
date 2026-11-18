@@ -121,7 +121,8 @@ function paradaAhora(v, dia, ps) {
   const prox = ps.findIndex(p => !p.hecho && (minutos(p.hora) ?? 9999) > h.min);
   return { idx: prox, ahora: false };
 }
-function fotoParada(p) { return p && p.fotos && p.fotos[0] ? urlMedio(p.fotos[0]) : ''; }
+/* w: ancho en píxeles; para los círculos pequeños se pide una foto pequeña y carga mucho antes */
+function fotoParada(p, w) { return p && p.fotos && p.fotos[0] ? urlMedio(p.fotos[0], w) : ''; }
 function portadaUrl(v) {
   if (!v) return '';
   if (v.portada) return urlMedio(v.portada);

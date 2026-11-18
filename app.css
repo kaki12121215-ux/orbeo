@@ -1,4 +1,4 @@
-/* ORBEO · estilos · versión 1.0.6 */
+/* ORBEO · estilos · versión 1.0.7 */
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/inter-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 
@@ -413,7 +413,7 @@ html[data-tema="oscuro"] .o-ahora-c{background:linear-gradient(140deg,rgba(255,2
 .o-pd-lugar{display:flex;align-items:center;gap:14px;width:100%;text-align:left;margin-top:22px;padding:10px 14px 10px 10px;border-radius:24px;background:var(--capa);border:1px solid var(--linea)}
 .o-pd-lugar>span:nth-child(2){flex:1;display:flex;flex-direction:column;gap:2px;font-size:14.5px;min-width:0}
 .o-pd-mini{position:relative;width:64px;height:64px;border-radius:18px;overflow:hidden;flex:none;background:var(--mapa)}
-.o-pd-mini img{position:absolute;left:0;top:0;width:256px;height:256px}
+.o-pd-mini img,.o-pd-mini .o-tm-t{position:absolute;left:0;top:0;width:256px;height:256px}
 .o-pd-mini .o-punto{position:absolute;left:50%;top:50%;translate:-50% -50%;box-shadow:0 0 0 4px var(--brillo)}
 .o-enl{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--linea);font-size:14.5px;color:var(--tinta2)}
 .o-enl .o-1l{flex:1}
@@ -435,7 +435,7 @@ html[data-tema="oscuro"] .o-ahora-c{background:linear-gradient(140deg,rgba(255,2
 .o-tm{touch-action:none;cursor:grab;user-select:none}
 .o-tm-capa{position:absolute;inset:0}
 .o-tm-tes{position:absolute;inset:0}
-.o-tm-t{position:absolute;left:0;top:0;width:256px;height:256px;opacity:0;transition:opacity .4s}
+.o-tm-t{position:absolute;left:0;top:0;width:256px;height:256px;opacity:0;transition:opacity .4s;background-size:256px 256px;background-repeat:no-repeat}
 .o-tm-t.o-ok{opacity:1}
 html:not([data-tema="oscuro"]) .o-tm-tes{filter:sepia(.18) saturate(.9) brightness(1.01)}
 html[data-tema="oscuro"] .o-tm-tes{filter:sepia(.25) brightness(.95)}
