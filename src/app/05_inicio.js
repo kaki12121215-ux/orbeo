@@ -279,7 +279,7 @@ function editarViaje(v, o) {
           <button class="o-chip o-vido t" data-a="ppropia">${ic('camera', 16)}Mi foto</button>
         </div></div>
       ${campo('vn', 'Nombre del viaje', 'Japón', f.nombre)}
-      <label class="o-campo" data-e><span class="o-etq">Destino</span><input id="f-vd" class="o-in" placeholder="Ciudad o región" value="${esc(f.ciudad || '')}" autocomplete="off"><div class="o-sugs" id="v-sugs"></div></label>
+      <label class="o-campo" data-e><span class="o-etq">Destino</span><input id="f-vd" name="orbeo-destino" type="search" enterkeyhint="search" class="o-in" placeholder="Ciudad o región" value="${esc(f.ciudad || '')}" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"><div class="o-sugs" id="v-sugs"></div></label>
       ${campo('vl', 'Ruta', 'Tokio, Hakone y Kioto', f.lugar)}
       <div class="o-dos" data-e>${campo('vde', 'Desde', '', f.desde, { tipo: 'date' })}${campo('vha', 'Hasta', '', f.hasta, { tipo: 'date' })}</div>
       <div class="o-campo" data-e><span class="o-etq">Hora del destino</span><div class="o-zona" id="v-zona">${zonaTxt(f.tz)}</div></div>
@@ -388,7 +388,9 @@ function editarViaje(v, o) {
   }
   function pintarSugs(h, ls) {
     const box = $('#v-sugs', h);
-    box.innerHTML = ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota">${esc(s.sub || '')}</span></span></button>`).join('');
+    const q = ($('#f-vd', h) || {}).value || '';
+    box.innerHTML = ls.length ? ls.map(s => `<button class="o-sug t" data-a="sug" data-j='${esc(JSON.stringify(s))}'>${ic('pin', 18)}<span><span>${esc(s.n)}</span><span class="o-nota">${esc(s.sub || '')}</span></span></button>`).join('')
+      : q.trim().length >= 3 ? `<div class="o-nota o-sug-nada">Aquí va la ciudad o la región del viaje (Tokio, Japón…). Los hoteles, restaurantes y sitios se añaden después como paradas, dentro del viaje.</div>` : '';
     $$('.o-sug', box).forEach((x, i) => animar(x, [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 40 }));
   }
 }
